@@ -1728,6 +1728,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get playlistSortByName => '标题';
+
+  @override
+  String operationPartialFailure(int count) {
+    return '操作完成，$count 项失败';
+  }
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -3454,4 +3459,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get playlistSortByName => '標題';
+
+  @override
+  String operationPartialFailure(int count) {
+    return '操作完成，$count 項失敗';
+  }
 }

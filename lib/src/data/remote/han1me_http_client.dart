@@ -42,7 +42,11 @@ class Han1meHttpClient {
       return;
     }
     final host = Uri.tryParse(url ?? '')?.host;
-    if (host == null || host.isEmpty) _desktopCookies.clear(); else _desktopCookies.remove(host);
+    if (host == null || host.isEmpty) {
+      _desktopCookies.clear();
+    } else {
+      _desktopCookies.remove(host);
+    }
   }
 
   Future<String> webViewCookies(String url) async {

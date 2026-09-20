@@ -80,17 +80,18 @@ class SettingsCardItem extends StatelessWidget {
 }
 
 class SettingsSliderItem extends SettingsCardItem {
-  SettingsSliderItem({
-    required String title,
-    String? subtitle,
-    Widget? leading,
+  const SettingsSliderItem({
+    super.key,
+    required super.title,
+    super.subtitle,
+    super.leading,
     required this.value,
     required this.min,
     required this.max,
     required this.divisions,
     required this.label,
     required this.onChanged,
-  }) : super(title: title, subtitle: subtitle, leading: leading);
+  });
 
   final double value;
   final double min;
@@ -115,22 +116,22 @@ class SettingsSliderItem extends SettingsCardItem {
 }
 
 class SettingsMenuItem<T> extends SettingsCardItem {
-  SettingsMenuItem({
-    required String title,
-    String? subtitle,
-    Widget? leading,
+  const SettingsMenuItem({
+    super.key,
+    required super.title,
+    super.subtitle,
+    super.leading,
     required this.value,
     required this.options,
     required this.label,
     required this.onSelected,
-    this.enabled = true,
-  }) : super(title: title, subtitle: subtitle, leading: leading);
+    super.enabled,
+  });
 
   final T value;
   final List<T> options;
   final String Function(T value) label;
   final ValueChanged<T> onSelected;
-  final bool enabled;
 
   Future<void> _showMenu(BuildContext context) async {
     final renderBox = context.findRenderObject()! as RenderBox;

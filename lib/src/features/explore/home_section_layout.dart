@@ -126,10 +126,9 @@ class _HomeSectionLayoutDialogState extends State<HomeSectionLayoutDialog> {
                 scrollController: _scrollController,
                 buildDefaultDragHandles: false,
                 itemCount: _order.length,
-                onReorder: (oldIndex, newIndex) => setState(() {
-                  final target = newIndex > oldIndex ? newIndex - 1 : newIndex;
+                onReorderItem: (oldIndex, newIndex) => setState(() {
                   final key = _order.removeAt(oldIndex);
-                  _order.insert(target, key);
+                  _order.insert(newIndex, key);
                 }),
                 itemBuilder: (context, index) {
                   final key = _order[index];

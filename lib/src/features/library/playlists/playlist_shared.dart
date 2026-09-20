@@ -122,18 +122,20 @@ Future<PlaylistSortOrder?> showPlaylistSortSheet(BuildContext context, PlaylistS
       builder: (context) {
         final l10n = AppLocalizations.of(context)!;
         return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              ListTile(title: Text(l10n.sortOrder)),
-              for (final sort in PlaylistSortOrder.values)
-                RadioListTile<PlaylistSortOrder>(
-                  value: sort,
-                  groupValue: current,
-                  onChanged: (value) => Navigator.pop(context, value),
-                  title: Text(playlistSortLabel(l10n, sort)),
-                ),
-            ],
+          child: RadioGroup<PlaylistSortOrder>(
+            groupValue: current,
+            onChanged: (value) { if (value != null) Navigator.pop(context, value); },
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                ListTile(title: Text(l10n.sortOrder)),
+                for (final sort in PlaylistSortOrder.values)
+                  RadioListTile<PlaylistSortOrder>(
+                    value: sort,
+                    title: Text(playlistSortLabel(l10n, sort)),
+                  ),
+              ],
+            ),
           ),
         );
       },

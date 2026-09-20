@@ -840,5 +840,13 @@
   "upcomingPreviews": "新番预告",
   "playlistSortRecentlyAdded": "最近添加",
   "playlistSortOldestAdded": "最早添加",
-  "playlistSortByName": "标题"
+  "playlistSortByName": "标题",
+  "operationPartialFailure": "操作完成，{count} 项失败",
+  "@operationPartialFailure": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

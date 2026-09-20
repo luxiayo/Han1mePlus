@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:go_router/go_router.dart';
 
 import '../../domain/models/video.dart';
@@ -96,7 +97,7 @@ class CompactVideoCardGrid extends StatelessWidget {
         final cardHeight = cardWidth * 4 / 3 + 6 + MediaQuery.textScalerOf(context).scale(40);
         return GridView.builder(
           padding: EdgeInsets.fromLTRB(12, 12, 12, 24 + MediaQuery.paddingOf(context).bottom),
-          cacheExtent: 720,
+          scrollCacheExtent: ScrollCacheExtent.pixels(720),
           keyboardDismissBehavior: keyboardDismissBehavior,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: compactVideoCardsPerRow,

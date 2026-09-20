@@ -34,6 +34,7 @@ import java.net.InetAddress
 import java.nio.charset.Charset
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 @Keep
@@ -79,6 +80,8 @@ class MainActivity : FlutterActivity() {
     private val userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36"
     // OkHttp 工作线程并发读写，必须用并发容器，否则 HashMap 竞态可能丢 cookie 甚至抛异常。
     private val responseCookies = ConcurrentHashMap<String, List<Cookie>>()
+    // 共享网络线程池：突发大量封面下载时不至于无限开线程。
+    private val networkExecutor = Executors.newFixedThreadPool(6)
     @Volatile private var networkSettings = NetworkSettings()
     private var emergencyExitEnabled = false
     private var volumeUpPresses = 0
@@ -329,7 +332,7 @@ class MainActivity : FlutterActivity() {
 
     private fun request(call: MethodCall, result: MethodChannel.Result, httpClient: OkHttpClient) {
         val url = call.argument<String>("url") ?: return result.error("invalid_url", "Missing URL", null)
-        Thread {
+        networkExecutor.execute {
             try {
                 val request = Request.Builder().url(url).header("User-Agent", userAgent)
                 (call.argument<Map<*, *>>("headers") ?: emptyMap<Any?, Any?>()).forEach { (name, value) ->
@@ -357,7 +360,7 @@ class MainActivity : FlutterActivity() {
             } catch (error: Exception) {
                 runOnUiThread { result.error("request_failed", error.message, null) }
             }
-        }.start()
+        }
     }
 
     private fun decodeResponse(bytes: ByteArray, responseCharset: String?): String = bytes.toString(responseCharset?.let(Charset::forName) ?: Charsets.UTF_8)
@@ -384,7 +387,7 @@ class MainActivity : FlutterActivity() {
             } catch (error: Exception) {
                 runOnUiThread { result.error("download_failed", error.message, null) }
             }
-        }.start()
+        }
     }
 
     private fun persistedCookies(url: okhttp3.HttpUrl): List<Cookie> = getSharedPreferences(preferencesName, Context.MODE_PRIVATE)

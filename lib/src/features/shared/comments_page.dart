@@ -172,8 +172,8 @@ class CommentCard extends ConsumerWidget {
   }
 
   Future<List<String>> _reportReasons(BuildContext context) async {
-    final json = await DefaultAssetBundle.of(context).loadString('assets/search_options/report_reason.json');
     final locale = Localizations.localeOf(context).languageCode == 'zh' ? (Localizations.localeOf(context).scriptCode == 'Hant' || Localizations.localeOf(context).countryCode == 'TW' ? 'zh-rTW' : 'zh-rCN') : 'en';
+    final json = await DefaultAssetBundle.of(context).loadString('assets/search_options/report_reason.json');
     return (jsonDecode(json) as List).whereType<Map>().map((item) => (item['lang'] as Map?)?[locale] as String? ?? item['reason_key'] as String? ?? '').where((item) => item.isNotEmpty).toList();
   }
 }

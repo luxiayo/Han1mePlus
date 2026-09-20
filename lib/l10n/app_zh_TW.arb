@@ -840,5 +840,13 @@
   "upcomingPreviews": "新番預告",
   "playlistSortRecentlyAdded": "最近加入",
   "playlistSortOldestAdded": "最早加入",
-  "playlistSortByName": "標題"
+  "playlistSortByName": "標題",
+  "operationPartialFailure": "操作完成，{count} 項失敗",
+  "@operationPartialFailure": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

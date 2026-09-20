@@ -48,10 +48,10 @@ class WindowsConnectionFactory {
     if (useBuiltInHosts && hanimeHosts.contains(uri.host)) {
       return _connect(uri, [...builtInAddresses, uri.host], port);
     }
-    if (!useDoh) return _startConnect(uri.host, port);
+    if (!useDoh) return await _startConnect(uri.host, port);
     try {
       final addresses = await _doh.resolve(uri.host);
-      if (addresses.isNotEmpty) return _connect(uri, [...addresses, uri.host], port);
+      if (addresses.isNotEmpty) return await _connect(uri, [...addresses, uri.host], port);
     } catch (_) {}
     return _connect(uri, [uri.host], port);
   }
@@ -65,7 +65,7 @@ class WindowsConnectionFactory {
       final address = addresses[(start + offset) % addresses.length];
       Socket? plain;
       try {
-        if (address == uri.host) return _startConnect(uri.host, port);
+        if (address == uri.host) return await _startConnect(uri.host, port);
         plain = await Socket.connect(address, port, timeout: _timeout);
         final secure = await SecureSocket.secure(
           plain,

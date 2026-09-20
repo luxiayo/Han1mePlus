@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:m3e_core/m3e_core.dart';
@@ -128,7 +129,7 @@ class _HomeScroll extends StatelessWidget {
   final bool forceExpanded;
 
   @override
-  Widget build(BuildContext context) => CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), cacheExtent: 720, slivers: [
+  Widget build(BuildContext context) => CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), scrollCacheExtent: ScrollCacheExtent.pixels(720), slivers: [
     if (featured != null) SliverToBoxAdapter(child: RepaintBoundary(child: _MaxWidth(child: _FeaturedVideo(video: featured!)))),
     for (final section in sections) _HomeSection(section: section, forceExpanded: forceExpanded),
     SliverToBoxAdapter(child: SizedBox(height: MediaQuery.paddingOf(context).bottom)),
@@ -267,7 +268,7 @@ class _VideoRow extends StatelessWidget {
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
           scrollDirection: Axis.horizontal,
-          cacheExtent: 480,
+          scrollCacheExtent: ScrollCacheExtent.pixels(480),
           itemCount: videos.length,
           separatorBuilder: (context, index) => const SizedBox(width: 12),
           itemBuilder: (context, index) => SizedBox(width: cardWidth, child: VideoCardTile(video: videos[index], horizontal: horizontal)),

@@ -75,8 +75,8 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   Widget _tabContent(LibraryState library, int index) {
     final l10n = AppLocalizations.of(context)!;
     return switch (index) {
-      0 => _SelectableVideos(videos: library.watchLater, emptyMessage: l10n.noWatchLater, remover: (ref, ids) => ref.read(libraryProvider.notifier).removeWatchLater(ids)),
-      1 => _SelectableVideos(videos: library.favorites, emptyMessage: l10n.noFavoriteVideos, remover: (ref, ids) => ref.read(libraryProvider.notifier).removeFavorites(ids)),
+      0 => _SelectableVideos(videos: library.watchLater, emptyMessage: l10n.noWatchLater, remover: (ref, ids) async { await ref.read(libraryProvider.notifier).removeWatchLater(ids); return 0; }),
+      1 => _SelectableVideos(videos: library.favorites, emptyMessage: l10n.noFavoriteVideos, remover: (ref, ids) async { await ref.read(libraryProvider.notifier).removeFavorites(ids); return 0; }),
       2 => _LocalPlaylists(playlists: library.playlists),
       3 => _LocalSubscriptions(artists: library.artists, videos: library.subscriptionVideos, selectedArtist: _artistId, onSelected: (artist) => setState(() => _artistId = artist)),
       _ => const _LocalHistory(),
@@ -131,13 +131,19 @@ Widget _remoteTabContent(BuildContext context, RemoteLibrary library, int index,
           final account = ref.read(accountProvider).valueOrNull;
           final userId = account?.id;
           final token = library.csrfToken ?? accountToken;
-          if (userId == null || token == null) return;
+          if (userId == null || token == null) return 0;
           final settings = await ref.read(settingsProvider.future);
           final repository = ref.read(han1meRepositoryProvider);
+          var failures = 0;
           for (final id in ids) {
-            await repository.saveToPlaylist(settings.resolvedBaseUrl, token, 'save', id, false);
+            try {
+              await repository.saveToPlaylist(settings.resolvedBaseUrl, token, 'save', id, false);
+            } catch (_) {
+              failures++;
+            }
           }
           ref.invalidate(remoteLibraryProvider);
+          return failures;
         },
       ),
     1 => _SelectableVideos(
@@ -147,13 +153,19 @@ Widget _remoteTabContent(BuildContext context, RemoteLibrary library, int index,
           final account = ref.read(accountProvider).valueOrNull;
           final userId = account?.id;
           final token = library.csrfToken ?? accountToken;
-          if (userId == null || token == null) return;
+          if (userId == null || token == null) return 0;
           final settings = await ref.read(settingsProvider.future);
           final repository = ref.read(han1meRepositoryProvider);
+          var failures = 0;
           for (final id in ids) {
-            await repository.setFavorite(settings.resolvedBaseUrl, token, userId, id, false);
+            try {
+              await repository.setFavorite(settings.resolvedBaseUrl, token, userId, id, false);
+            } catch (_) {
+              failures++;
+            }
           }
           ref.invalidate(remoteLibraryProvider);
+          return failures;
         },
       ),
     2 => _Playlists(playlists: library.playlists, token: library.csrfToken ?? accountToken),
@@ -170,6 +182,27 @@ String _tabTitle(AppLocalizations l10n, int index) => switch (index) {
   _ => l10n.watchHistory,
 };
 
+mixin _VideoSelectionState<T extends StatefulWidget> on State<T> {
+  final _selected = <String>{};
+  var _selectionMode = false;
+
+  void _toggle(String id) => setState(() => _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
+  void _enterSelection() => setState(() => _selectionMode = true);
+  void _startSelection(String id) => setState(() { _selectionMode = true; _selected.add(id); });
+  void _exitSelection() => setState(() { _selectionMode = false; _selected.clear(); });
+}
+
+Widget _selectionChrome(BuildContext context, bool selected, Widget child) => Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: selected ? BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2), borderRadius: BorderRadius.circular(12)) : const BoxDecoration(),
+          child: child,
+        ),
+        if (selected) const Positioned(top: 6, right: 6, child: Icon(Icons.check_circle, color: Colors.white)),
+      ],
+    );
+
 class _LocalHistory extends ConsumerStatefulWidget {
   const _LocalHistory();
 
@@ -177,10 +210,7 @@ class _LocalHistory extends ConsumerStatefulWidget {
   ConsumerState<_LocalHistory> createState() => _LocalHistoryState();
 }
 
-class _LocalHistoryState extends ConsumerState<_LocalHistory> {
-  final _selected = <String>{};
-  var _selectionMode = false;
-
+class _LocalHistoryState extends ConsumerState<_LocalHistory> with _VideoSelectionState<_LocalHistory> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -194,16 +224,10 @@ class _LocalHistoryState extends ConsumerState<_LocalHistory> {
                 videos: items.map((item) => VideoCard(id: item.videoCode, title: item.title, coverUrl: '')).toList(growable: false),
                 itemBuilder: (context, index, video, horizontal) {
                   final item = items[index];
-                  final selected = _selected.contains(item.id);
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      DecoratedBox(
-                        decoration: selected ? BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2), borderRadius: BorderRadius.circular(12)) : const BoxDecoration(),
-                        child: VideoCardTile(video: video, horizontal: horizontal, onTap: _selectionMode ? () => _toggle(item.id) : null, onLongPress: () => _startSelection(item.id)),
-                      ),
-                      if (selected) const Positioned(top: 6, right: 6, child: Icon(Icons.check_circle, color: Colors.white)),
-                    ],
+                  return _selectionChrome(
+                    context,
+                    _selected.contains(item.id),
+                    VideoCardTile(video: video, horizontal: horizontal, onTap: _selectionMode ? () => _toggle(item.id) : null, onLongPress: () => _startSelection(item.id)),
                   );
                 },
               ),
@@ -212,16 +236,11 @@ class _LocalHistoryState extends ConsumerState<_LocalHistory> {
     );
   }
 
-  void _toggle(String id) => setState(() => _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
-  void _enterSelection() => setState(() => _selectionMode = true);
-  void _startSelection(String id) => setState(() { _selectionMode = true; _selected.add(id); });
-  void _exitSelection() => setState(() { _selectionMode = false; _selected.clear(); });
-
   Future<void> _deleteSelected() async {
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: Text(AppLocalizations.of(context)!.delete), content: Text(AppLocalizations.of(context)!.selectedItems(_selected.length)), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppLocalizations.of(context)!.cancel)), FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppLocalizations.of(context)!.delete))]));
     if (confirmed != true) return;
     await ref.read(watchProvider.notifier).deleteHistories(_selected);
-    if (mounted) setState(() { _selectionMode = false; _selected.clear(); });
+    if (mounted) _exitSelection();
   }
 }
 
@@ -473,10 +492,7 @@ class _RemoteHistory extends ConsumerStatefulWidget {
   ConsumerState<_RemoteHistory> createState() => _RemoteHistoryState();
 }
 
-class _RemoteHistoryState extends ConsumerState<_RemoteHistory> {
-  final _selected = <String>{};
-  var _selectionMode = false;
-
+class _RemoteHistoryState extends ConsumerState<_RemoteHistory> with _VideoSelectionState<_RemoteHistory> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -487,16 +503,10 @@ class _RemoteHistoryState extends ConsumerState<_RemoteHistory> {
             : VideoCardGrid(
                 videos: widget.videos.map(_videoCard).toList(growable: false),
                 itemBuilder: (context, index, video, horizontal) {
-                  final selected = _selected.contains(video.id);
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      DecoratedBox(
-                        decoration: selected ? BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2), borderRadius: BorderRadius.circular(12)) : const BoxDecoration(),
-                        child: VideoCardTile(video: video, horizontal: horizontal, onTap: _selectionMode ? () => _toggle(video.id) : null, onLongPress: () => _startSelection(video.id)),
-                      ),
-                      if (selected) const Positioned(top: 6, right: 6, child: Icon(Icons.check_circle, color: Colors.white)),
-                    ],
+                  return _selectionChrome(
+                    context,
+                    _selected.contains(video.id),
+                    VideoCardTile(video: video, horizontal: horizontal, onTap: _selectionMode ? () => _toggle(video.id) : null, onLongPress: () => _startSelection(video.id)),
                   );
                 },
               ),
@@ -509,23 +519,26 @@ class _RemoteHistoryState extends ConsumerState<_RemoteHistory> {
     );
   }
 
-  void _toggle(String id) => setState(() => _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
-  void _enterSelection() => setState(() => _selectionMode = true);
-  void _startSelection(String id) => setState(() { _selectionMode = true; _selected.add(id); });
-  void _exitSelection() => setState(() { _selectionMode = false; _selected.clear(); });
-
   Future<void> _deleteSelected() async {
     final token = widget.token;
     if (token == null) return;
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: Text(AppLocalizations.of(context)!.delete), content: Text(AppLocalizations.of(context)!.selectedItems(_selected.length)), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppLocalizations.of(context)!.cancel)), FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppLocalizations.of(context)!.delete))]));
-    if (confirmed != true) return;
+    if (confirmed != true || !mounted) return;
     final settings = await ref.read(settingsProvider.future);
+    final repository = ref.read(han1meRepositoryProvider);
+    var failures = 0;
     for (final id in _selected) {
-      await ref.read(han1meRepositoryProvider).deleteHistory(settings.resolvedBaseUrl, token, id);
+      try {
+        await repository.deleteHistory(settings.resolvedBaseUrl, token, id);
+      } catch (_) {
+        failures++;
+      }
     }
     if (!mounted) return;
-    setState(() { _selectionMode = false; _selected.clear(); });
+    _exitSelection();
     ref.invalidate(remoteLibraryProvider);
+    if (failures > 0) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.operationPartialFailure(failures))));
   }
 }
 
@@ -569,16 +582,13 @@ class _SelectableVideos extends ConsumerStatefulWidget {
 
   final List<FollowingVideo> videos;
   final String emptyMessage;
-  final Future<void> Function(WidgetRef ref, Set<String> videoCodes) remover;
+  final Future<int> Function(WidgetRef ref, Set<String> videoCodes) remover;
 
   @override
   ConsumerState<_SelectableVideos> createState() => _SelectableVideosState();
 }
 
-class _SelectableVideosState extends ConsumerState<_SelectableVideos> {
-  final _selected = <String>{};
-  var _selectionMode = false;
-
+class _SelectableVideosState extends ConsumerState<_SelectableVideos> with _VideoSelectionState<_SelectableVideos> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
@@ -589,16 +599,10 @@ class _SelectableVideosState extends ConsumerState<_SelectableVideos> {
             : VideoCardGrid(
                 videos: widget.videos.map(_videoCard).toList(growable: false),
                 itemBuilder: (context, index, video, horizontal) {
-                  final selected = _selected.contains(video.id);
-                  return Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      DecoratedBox(
-                        decoration: selected ? BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2), borderRadius: BorderRadius.circular(12)) : const BoxDecoration(),
-                        child: VideoCardTile(video: video, horizontal: horizontal, onTap: _selectionMode ? () => _toggle(video.id) : null, onLongPress: () => _startSelection(video.id)),
-                      ),
-                      if (selected) const Positioned(top: 6, right: 6, child: Icon(Icons.check_circle, color: Colors.white)),
-                    ],
+                  return _selectionChrome(
+                    context,
+                    _selected.contains(video.id),
+                    VideoCardTile(video: video, horizontal: horizontal, onTap: _selectionMode ? () => _toggle(video.id) : null, onLongPress: () => _startSelection(video.id)),
                   );
                 },
               ),
@@ -607,17 +611,14 @@ class _SelectableVideosState extends ConsumerState<_SelectableVideos> {
     );
   }
 
-  void _toggle(String id) => setState(() => _selected.contains(id) ? _selected.remove(id) : _selected.add(id));
-  void _enterSelection() => setState(() => _selectionMode = true);
-  void _startSelection(String id) => setState(() { _selectionMode = true; _selected.add(id); });
-  void _exitSelection() => setState(() { _selectionMode = false; _selected.clear(); });
-
   Future<void> _deleteSelected() async {
     final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: Text(l10n.delete), content: Text(l10n.selectedItems(_selected.length)), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.cancel)), FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(l10n.delete))]));
     if (confirmed != true || !mounted) return;
-    await widget.remover(ref, _selected);
-    if (mounted) setState(() { _selectionMode = false; _selected.clear(); });
+    final failures = await widget.remover(ref, _selected);
+    if (!mounted) return;
+    _exitSelection();
+    if (failures > 0) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.operationPartialFailure(failures))));
   }
 }
 

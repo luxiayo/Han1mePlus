@@ -123,12 +123,22 @@ class _RemotePlaylistPageState extends ConsumerState<RemotePlaylistPage> {
       setState(() => _editing = false);
       return;
     }
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(context: context, builder: (context) => AlertDialog(title: Text(AppLocalizations.of(context)!.delete), content: Text(AppLocalizations.of(context)!.selectedItems(_selectedItems.length)), actions: [TextButton(onPressed: () => Navigator.pop(context, false), child: Text(AppLocalizations.of(context)!.cancel)), FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(AppLocalizations.of(context)!.delete))]));
     final account = ref.read(accountProvider).valueOrNull;
     if (confirmed != true || account?.csrfToken == null) return;
     final settings = await ref.read(settingsProvider.future);
-    await Future.wait(_selectedItems.map((id) => ref.read(han1meRepositoryProvider).removePlaylistItem(settings.resolvedBaseUrl, account!.csrfToken!, id)));
-    if (mounted) setState(() { _editing = false; _selectedItems.clear(); _playlist = _load(); });
+    var failures = 0;
+    await Future.wait(_selectedItems.map((id) async {
+      try {
+        await ref.read(han1meRepositoryProvider).removePlaylistItem(settings.resolvedBaseUrl, account!.csrfToken!, id);
+      } catch (_) {
+        failures++;
+      }
+    }));
+    if (!mounted) return;
+    setState(() { _editing = false; _selectedItems.clear(); _playlist = _load(); });
+    if (failures > 0) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.operationPartialFailure(failures))));
   }
 }
 

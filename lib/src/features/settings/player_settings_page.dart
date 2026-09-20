@@ -114,11 +114,12 @@ class _CustomParametersDialogState extends State<_CustomParametersDialog> {
 }
 
 class _OptionTile extends SettingsCardItem {
-  _OptionTile({required IconData icon, required String title, required String value, required bool enabled, required VoidCallback? onTap, Widget? trailing})
-      : super(title: title, subtitle: value, leading: Icon(icon), trailing: trailing ?? const Icon(Icons.chevron_right), onTap: onTap, enabled: enabled);
+  _OptionTile({required IconData icon, required super.title, required String value, required super.enabled, required super.onTap, Widget? trailing})
+      : super(subtitle: value, leading: Icon(icon), trailing: trailing ?? const Icon(Icons.chevron_right));
 }
 
 class _ViewMenuTile extends SettingsMenuItem<VideoView> {
+  // ignore: use_super_parameters -- subtitle 由 value/label 计算得出，参数无法全部上提。
   _ViewMenuTile({required IconData icon, required String title, required VideoView value, required bool enabled, required String Function(VideoView) label, required ValueChanged<VideoView> onSelected})
       : super(title: title, subtitle: label(value), leading: Icon(icon), value: value, options: VideoView.values, label: label, onSelected: onSelected, enabled: enabled);
 }

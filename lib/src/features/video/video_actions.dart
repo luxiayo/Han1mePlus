@@ -84,6 +84,7 @@ class VideoActionBar extends ConsumerWidget {
       await controller.saveToPlaylist(video, selected);
       return;
     }
+    if (!context.mounted) return;
     final result = await showDialog<PlaylistEditorResult>(context: context, builder: (_) => const PlaylistEditorDialog());
     if (result == null || result.title.isEmpty) return;
     await controller.createPlaylistWithVideo(video, result.title, description: result.description);
@@ -109,6 +110,7 @@ class VideoActionBar extends ConsumerWidget {
     if (selected == null) return;
     final settings = await ref.read(settingsProvider.future);
     if (selected == '__create__') {
+      if (!context.mounted) return;
       final result = await showDialog<(String, String)>(context: context, builder: (_) => const _PlaylistEditorDialog());
       if (result == null || result.$1.isEmpty) return;
       await ref.read(han1meRepositoryProvider).createPlaylist(settings.resolvedBaseUrl, token, video.id, result.$1, result.$2);
@@ -128,7 +130,11 @@ class VideoActionBar extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(padding: const EdgeInsets.all(16), child: Text(AppLocalizations.of(context)!.selectDownloadQuality, style: const TextStyle(fontWeight: FontWeight.w600))),
-              ...video.sources.map((item) => RadioListTile<VideoSource>(value: item, groupValue: source, onChanged: (value) => setSheet(() => source = value!), title: Text(item.quality))),
+              RadioGroup<VideoSource>(
+                groupValue: source,
+                onChanged: (value) => setSheet(() => source = value!),
+                child: Column(mainAxisSize: MainAxisSize.min, children: video.sources.map((item) => RadioListTile<VideoSource>(value: item, title: Text(item.quality))).toList()),
+              ),
               const SizedBox(height: 8),
               FilledButton(onPressed: () => Navigator.pop(sheetContext, source), child: Text(AppLocalizations.of(context)!.startDownload)),
               const SizedBox(height: 16),

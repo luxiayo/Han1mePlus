@@ -16,7 +16,7 @@ class ComicReaderState {
   final String background;
   final Map<String, int> progress;
   Map<String, dynamic> toJson() => {'mode': mode, 'background': background, 'progress': progress};
-  factory ComicReaderState.fromJson(Map<String, dynamic> json) => ComicReaderState(mode: ((json['mode'] as int? ?? 0).clamp(0, 5) as int), background: json['background'] as String? ?? 'black', progress: (json['progress'] as Map? ?? const {}).map((key, value) => MapEntry('$key', value as int? ?? 0)));
+  factory ComicReaderState.fromJson(Map<String, dynamic> json) => ComicReaderState(mode: ((json['mode'] as int? ?? 0).clamp(0, 5)), background: json['background'] as String? ?? 'black', progress: (json['progress'] as Map? ?? const {}).map((key, value) => MapEntry('$key', value as int? ?? 0)));
 }
 
 class ComicReaderStore {
@@ -121,7 +121,7 @@ class ComicCacheController extends AsyncNotifier<List<ComicCacheEntry>> {
 
   Future<List<String>> categories() async {
     final saved = (await _store.read(_categoriesKey))['items'] as List? ?? const [];
-    return [defaultComicCategory, ...saved.whereType<String>()].toSet().toList();
+    return <String>{defaultComicCategory, ...saved.whereType<String>()}.toList();
   }
 
   Future<void> addCategory(String category) async {

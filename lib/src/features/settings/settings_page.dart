@@ -51,6 +51,6 @@ class SettingsPage extends ConsumerWidget {
 }
 
 class _NavigationTile extends SettingsCardItem {
-  _NavigationTile({required IconData icon, required String title, String? subtitle, required VoidCallback onTap})
-      : super(title: title, subtitle: subtitle, leading: Icon(icon), trailing: const Icon(Icons.chevron_right), onTap: onTap);
+  _NavigationTile({required IconData icon, required super.title, required super.onTap})
+      : super(leading: Icon(icon), trailing: const Icon(Icons.chevron_right));
 }

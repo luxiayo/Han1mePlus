@@ -81,7 +81,7 @@ class _AppStartupEffectsState extends ConsumerState<AppStartupEffects> {
     final update = await UpdateChecker(createDio()).check();
     if (!mounted || update == null) return;
     final context = widget.navigatorKey.currentContext;
-    if (context == null) return;
+    if (!mounted || context == null || !context.mounted) return;
     final l10n = AppLocalizations.of(context)!;
     await showDialog<void>(
       context: context,

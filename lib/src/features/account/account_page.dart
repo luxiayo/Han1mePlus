@@ -24,7 +24,7 @@ class AccountPage extends ConsumerWidget {
           _AccountSwitcher(account: account),
           if (account != null) ...[
             const SizedBox(height: 12),
-            _ProfilePanels(account: account!),
+            _ProfilePanels(account: account),
             const SizedBox(height: 24),
             Center(
               child: TextButton.icon(

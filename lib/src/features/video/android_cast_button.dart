@@ -38,6 +38,7 @@ class AndroidCastButton extends ConsumerWidget {
     StreamSubscription? subscription;
     try {
       final session = await manager.start();
+      if (!context.mounted) return;
       var devices = <dynamic>[];
       await showDialog<void>(
         context: context,

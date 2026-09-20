@@ -1788,4 +1788,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playlistSortByName => 'Title';
+
+  @override
+  String operationPartialFailure(int count) {
+    return 'Completed, but $count item(s) failed';
+  }
 }

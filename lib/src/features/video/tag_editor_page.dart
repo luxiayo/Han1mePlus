@@ -79,7 +79,7 @@ class _TagEditorPageState extends ConsumerState<TagEditorPage> {
         if (didPop || _closing) return;
         _closing = true;
         await _syncCookies();
-        if (!mounted) return;
+        if (!mounted || !context.mounted) return;
         setState(() => _allowPop = true);
         Navigator.pop(context);
       },

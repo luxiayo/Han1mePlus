@@ -840,5 +840,13 @@
   "upcomingPreviews": "Upcoming",
   "playlistSortRecentlyAdded": "Recently added",
   "playlistSortOldestAdded": "Oldest added",
-  "playlistSortByName": "Title"
+  "playlistSortByName": "Title",
+  "operationPartialFailure": "Completed, but {count} item(s) failed",
+  "@operationPartialFailure": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
 }

@@ -10,3 +10,10 @@ pubspec.lock
 *.iml
 
 .vscode/
+
+# macOS / IDE 杂物
+.DS_Store
+
+# Flutter GeneratedPluginSwiftPackage 本地缓存
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+ios/Runner.xcworkspace/xcshareddata/swiftpm/

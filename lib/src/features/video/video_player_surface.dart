@@ -438,11 +438,13 @@ class _MarqueeTitleState extends State<_MarqueeTitle> with SingleTickerProviderS
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (context, constraints) {
-        final style = const TextStyle(color: Colors.white, fontWeight: FontWeight.w600);
+        const style = TextStyle(color: Colors.white, fontWeight: FontWeight.w600);
         final painter = TextPainter(text: TextSpan(text: widget.title, style: style), maxLines: 1, textDirection: TextDirection.ltr)..layout();
         final width = painter.width;
-        if (width <= constraints.maxWidth) return Text(widget.title, maxLines: 1, style: style);
+        final overflows = width > constraints.maxWidth;
         final distance = width - constraints.maxWidth + 24;
+        painter.dispose();
+        if (!overflows) return Text(widget.title, maxLines: 1, style: style);
         return ClipRect(child: AnimatedBuilder(animation: _controller, builder: (context, child) => Transform.translate(offset: Offset(-distance * _controller.value, 0), child: child), child: Text(widget.title, maxLines: 1, style: style)));
       });
 }

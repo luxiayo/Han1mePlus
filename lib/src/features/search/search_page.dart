@@ -317,7 +317,7 @@ class _DateFilterDialogState extends State<_DateFilterDialog> {
             const SizedBox(height: 16),
             if (_mode == _DateMode.range)
               DropdownButtonFormField<String>(
-                value: _range,
+                initialValue: _range,
                 decoration: InputDecoration(labelText: l10n.releaseDateTitle),
                  items: widget.options.map((item) => DropdownMenuItem(value: item.searchKey ?? '', child: Text((item.searchKey?.isEmpty ?? true) ? l10n.all : item.labelFor(widget.locale)))).toList(),
                 onChanged: (value) => setState(() => _range = value ?? ''),
@@ -325,9 +325,9 @@ class _DateFilterDialogState extends State<_DateFilterDialog> {
             else
               Row(
                 children: [
-                  Expanded(child: DropdownButtonFormField(value: _year, decoration: InputDecoration(labelText: l10n.year), items: ['', ...years].map((value) => DropdownMenuItem(value: value, child: Text(value.isEmpty ? l10n.allYears : value))).toList(), onChanged: (value) => setState(() => _year = value ?? ''))),
+                  Expanded(child: DropdownButtonFormField(initialValue: _year, decoration: InputDecoration(labelText: l10n.year), items: ['', ...years].map((value) => DropdownMenuItem(value: value, child: Text(value.isEmpty ? l10n.allYears : value))).toList(), onChanged: (value) => setState(() => _year = value ?? ''))),
                   const SizedBox(width: 12),
-                  Expanded(child: DropdownButtonFormField(value: _month, decoration: InputDecoration(labelText: l10n.month), items: [for (var month = 1; month <= 12; month++) '$month 月', ''].map((value) => DropdownMenuItem(value: value, child: Text(value.isEmpty ? l10n.allMonths : value))).toList(), onChanged: (value) => setState(() => _month = value ?? ''))),
+                  Expanded(child: DropdownButtonFormField(initialValue: _month, decoration: InputDecoration(labelText: l10n.month), items: [for (var month = 1; month <= 12; month++) '$month 月', ''].map((value) => DropdownMenuItem(value: value, child: Text(value.isEmpty ? l10n.allMonths : value))).toList(), onChanged: (value) => setState(() => _month = value ?? ''))),
                 ],
               ),
           ],

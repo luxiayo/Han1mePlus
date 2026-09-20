@@ -162,7 +162,7 @@ class Han1meApi {
           );
         })
         .where((item) => item.id.isNotEmpty && item.title.isNotEmpty)
-        .fold<List<PreviewItem>>([], (list, item) => list.any((existing) => existing.id == item.id) ? list : [...list, item]);
+        .uniqueBy((item) => item.id);
     return PreviewFeed(
       title: _documentTitle(document, _upcomingGenre),
       description: '',
@@ -244,7 +244,7 @@ class Han1meApi {
           return VideoTag(name: name, count: count == null ? null : int.parse(count), href: href);
         })
         .where((tag) => tag.name.isNotEmpty)
-        .fold<List<VideoTag>>([], (list, tag) => list.any((item) => item.name == tag.name) ? list : [...list, tag]);
+        .uniqueBy((tag) => tag.name);
     final detail = descriptionPanel;
     final artistAnchor = document.querySelector('#video-user-avatar + img') ?? document.querySelector('#video-user-avatar') ?? detail?.querySelector('a[href*="/user/"] img');
     final artistName = document.querySelector('#video-artist-name')?.text.trim() ?? detail?.querySelector('a[href*="/user/"]')?.nextElementSibling?.querySelector('span')?.text.trim();
@@ -261,7 +261,7 @@ class Han1meApi {
     final uploadDate = _extractDate(viewsLine);
     final commentCountText = document.querySelector('#tab-comments-count')?.text.replaceAll(RegExp(r'\D'), '') ?? '';
     final commentCount = int.tryParse(commentCountText);
-    final playlist = document.querySelectorAll('#playlist-scroll .playlist-hover-wrap').map(_card).where((video) => video.id.isNotEmpty).fold<List<VideoCard>>([], _addUniqueCard);
+    final playlist = document.querySelectorAll('#playlist-scroll .playlist-hover-wrap').map(_card).where((video) => video.id.isNotEmpty).uniqueBy((video) => video.id);
     final rating = playlist.where((video) => video.id == id).firstOrNull?.rating;
     return VideoDetail(
       id: id,
@@ -291,7 +291,7 @@ class Han1meApi {
             .querySelectorAll('#related-tabcontent .horizontal-card, #related-tabcontent .related-video-margin-bottom')
             .map((element) => element.classes.contains('related-video-margin-bottom') ? _simplifiedCard(element.parent ?? element) : _card(element))
             .where((video) => video.id.isNotEmpty)
-            .fold<List<VideoCard>>([], _addUniqueCard),
+            .uniqueBy((video) => video.id),
       );
   }
 
@@ -595,8 +595,6 @@ class Han1meApi {
     return text.isEmpty ? element.text.trim() : text;
   }
 
-  List<VideoCard> _addUniqueCard(List<VideoCard> cards, VideoCard video) => cards.any((item) => item.id == video.id) ? cards : [...cards, video];
-
   VideoCard _simplifiedCard(dom.Element element) {
     final href = element.attributes['href'] ?? element.attributes['data-href'] ?? element.querySelector('a')?.attributes['href'] ?? element.parent?.attributes['href'] ?? element.parent?.attributes['data-href'] ?? '';
     final id = Uri.tryParse(href)?.queryParameters['v'] ?? element.attributes['data-id'] ?? element.querySelector('[data-id]')?.attributes['data-id'] ?? '';
@@ -668,5 +666,13 @@ class Han1meApi {
       hash = (31 * hash + codeUnit) & 0xffffffff;
     }
     return hash >= 0x80000000 ? hash - 0x100000000 : hash;
+  }
+}
+
+extension _UniqueIterable<T> on Iterable<T> {
+  // LinkedHashSet 保序去重，替代 O(n²) 的 fold+any 模式。
+  List<T> uniqueBy(Object? Function(T) keyOf) {
+    final seen = <Object?>{};
+    return [for (final item in this) if (seen.add(keyOf(item))) item];
   }
 }

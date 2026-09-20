@@ -28,9 +28,9 @@ class ConfiguredMediaKitVideoPlayer extends VideoPlayerPlatform {
 
   @override
   Future<void> init() async {
-    final textureIds = _players.keys.toList(growable: false);
-    for (final textureId in textureIds) {
-      await dispose(textureId);
+    final playerIds = _players.keys.toList(growable: false);
+    for (final playerId in playerIds) {
+      await dispose(playerId);
     }
     _players.clear();
     _completers.clear();
@@ -40,12 +40,12 @@ class ConfiguredMediaKitVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<void> dispose(int textureId) async {
-    final player = _players.remove(textureId);
-    final streamController = _streamControllers.remove(textureId);
-    final subscriptions = _streamSubscriptions.remove(textureId);
-    _videoControllers.remove(textureId);
-    final completer = _completers.remove(textureId);
+  Future<void> dispose(int playerId) async {
+    final player = _players.remove(playerId);
+    final streamController = _streamControllers.remove(playerId);
+    final subscriptions = _streamSubscriptions.remove(playerId);
+    _videoControllers.remove(playerId);
+    final completer = _completers.remove(playerId);
     if (completer != null && !completer.isCompleted) {
       completer.complete();
     }
@@ -69,7 +69,7 @@ class ConfiguredMediaKitVideoPlayer extends VideoPlayerPlatform {
   @override
   Future<int?> create(DataSource dataSource) async {
     final player = Player();
-    int? textureId;
+    int? playerId;
     try {
       final native = player.platform as NativePlayer;
       await native.waitForPlayerInitialization;
@@ -82,15 +82,15 @@ class ConfiguredMediaKitVideoPlayer extends VideoPlayerPlatform {
       final completer = Completer<void>();
       final streamController = StreamController<VideoEvent>();
       final streamSubscriptions = <StreamSubscription>[];
-      textureId = ++_nextTextureId;
+      playerId = ++_nextTextureId;
 
-      _players[textureId] = player;
-      _completers[textureId] = completer;
-      _videoControllers[textureId] = videoController;
-      _streamControllers[textureId] = streamController;
-      _streamSubscriptions[textureId] = streamSubscriptions;
+      _players[playerId] = player;
+      _completers[playerId] = completer;
+      _videoControllers[playerId] = videoController;
+      _streamControllers[playerId] = streamController;
+      _streamSubscriptions[playerId] = streamSubscriptions;
 
-      _initialize(textureId);
+      _initialize(playerId);
 
       final resource = switch (dataSource.sourceType) {
         DataSourceType.asset => dataSource.package == null
@@ -103,10 +103,10 @@ class ConfiguredMediaKitVideoPlayer extends VideoPlayerPlatform {
         Media(resource, httpHeaders: dataSource.httpHeaders),
         play: false,
       );
-      return textureId;
+      return playerId;
     } catch (_) {
-      if (textureId != null && identical(_players[textureId], player)) {
-        await dispose(textureId);
+      if (playerId != null && identical(_players[playerId], player)) {
+        await dispose(playerId);
       } else {
         try {
           await player.dispose().timeout(const Duration(seconds: 2));
@@ -159,42 +159,42 @@ class ConfiguredMediaKitVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Stream<VideoEvent> videoEventsFor(int textureId) {
-    if (_streamControllers[textureId] == null) {
-      throw StateError('VideoPlayer for textureId $textureId is not found, Check if its disposed.');
+  Stream<VideoEvent> videoEventsFor(int playerId) {
+    if (_streamControllers[playerId] == null) {
+      throw StateError('VideoPlayer for playerId $playerId is not found, Check if its disposed.');
     }
-    return _streamControllers[textureId]!.stream;
+    return _streamControllers[playerId]!.stream;
   }
 
   @override
-  Future<void> setLooping(int textureId, bool looping) async {
+  Future<void> setLooping(int playerId, bool looping) async {
     final playlistMode = looping ? PlaylistMode.single : PlaylistMode.none;
-    return _players[textureId]?.setPlaylistMode(playlistMode);
+    return _players[playerId]?.setPlaylistMode(playlistMode);
   }
 
   @override
-  Future<void> play(int textureId) async {
-    return _players[textureId]?.play();
+  Future<void> play(int playerId) async {
+    return _players[playerId]?.play();
   }
 
   @override
-  Future<void> pause(int textureId) async {
-    return _players[textureId]?.pause();
+  Future<void> pause(int playerId) async {
+    return _players[playerId]?.pause();
   }
 
   @override
-  Future<void> setVolume(int textureId, double volume) async {
-    return _players[textureId]?.setVolume(volume * 100);
+  Future<void> setVolume(int playerId, double volume) async {
+    return _players[playerId]?.setVolume(volume * 100);
   }
 
   @override
-  Future<void> seekTo(int textureId, Duration position) async {
-    return _players[textureId]?.seek(position);
+  Future<void> seekTo(int playerId, Duration position) async {
+    return _players[playerId]?.seek(position);
   }
 
   @override
-  Future<void> setPlaybackSpeed(int textureId, double speed) async {
-    final player = _players[textureId];
+  Future<void> setPlaybackSpeed(int playerId, double speed) async {
+    final player = _players[playerId];
     if (player == null) return;
     try {
       await player.setRate(speed);
@@ -202,18 +202,18 @@ class ConfiguredMediaKitVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<Duration> getPosition(int textureId) async {
-    return _players[textureId]?.platform?.state.position ?? Duration.zero;
+  Future<Duration> getPosition(int playerId) async {
+    return _players[playerId]?.platform?.state.position ?? Duration.zero;
   }
 
   @override
-  Widget buildView(int textureId) {
-    if (_videoControllers[textureId] == null) {
-      throw StateError('VideoPlayer for textureId $textureId is not found, Check if its disposed.');
+  Widget buildView(int playerId) {
+    if (_videoControllers[playerId] == null) {
+      throw StateError('VideoPlayer for playerId $playerId is not found, Check if its disposed.');
     }
     return Video(
-      key: ValueKey(_videoControllers[textureId]!),
-      controller: _videoControllers[textureId]!,
+      key: ValueKey(_videoControllers[playerId]!),
+      controller: _videoControllers[playerId]!,
       wakelock: false,
       controls: NoVideoControls,
       fill: const Color(0x00000000),
@@ -226,15 +226,15 @@ class ConfiguredMediaKitVideoPlayer extends VideoPlayerPlatform {
   Future<void> setMixWithOthers(bool mixWithOthers) => Future.value();
 
   @override
-  Future<void> setWebOptions(int textureId, VideoPlayerWebOptions options) => Future.value();
+  Future<void> setWebOptions(int playerId, VideoPlayerWebOptions options) => Future.value();
 
-  void _initialize(int textureId) {
-    if (_streamSubscriptions[textureId]?.isNotEmpty ?? false) return;
+  void _initialize(int playerId) {
+    if (_streamSubscriptions[playerId]?.isNotEmpty ?? false) return;
 
-    final player = _players[textureId];
-    final completer = _completers[textureId];
-    final streamController = _streamControllers[textureId];
-    final streamSubscriptions = _streamSubscriptions[textureId];
+    final player = _players[playerId];
+    final completer = _completers[playerId];
+    final streamController = _streamControllers[playerId];
+    final streamSubscriptions = _streamSubscriptions[playerId];
 
     if (player == null ||
         completer == null ||
@@ -247,7 +247,7 @@ class ConfiguredMediaKitVideoPlayer extends VideoPlayerPlatform {
     int? height;
     Duration? duration;
 
-    bool isActive() => identical(_streamControllers[textureId], streamController) &&
+    bool isActive() => identical(_streamControllers[playerId], streamController) &&
         !streamController.isClosed;
 
     void notify() {

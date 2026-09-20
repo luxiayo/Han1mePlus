@@ -3319,6 +3319,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Title'**
   String get playlistSortByName;
+
+  /// No description provided for @operationPartialFailure.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed, but {count} item(s) failed'**
+  String operationPartialFailure(int count);
 }
 
 class _AppLocalizationsDelegate

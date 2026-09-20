@@ -55,7 +55,7 @@ class ComicApi {
   Future<dom.Document> _document(String url) async {
     final response = await _http.get(url);
     if (Han1meApi.isCloudflareResponse(response.statusCode, response.headers, response.body)) throw CloudflareChallengeException(url);
-    if ((response.statusCode ?? 500) >= 400) throw StateError('Request failed: HTTP ${response.statusCode}');
+    if (response.statusCode >= 400) throw StateError('Request failed: HTTP ${response.statusCode}');
     return html_parser.parse(response.body);
   }
 

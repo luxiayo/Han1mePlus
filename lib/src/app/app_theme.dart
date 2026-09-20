@@ -19,6 +19,8 @@ ThemeData appTheme(ColorScheme? dynamicScheme, Color seedColor, {Brightness brig
     colorScheme: scheme,
     scaffoldBackgroundColor: amoled ? Colors.black : null,
     canvasColor: amoled ? Colors.black : null,
+    // 有意选择 2024 滑块外观，显式关闭 year2023（该属性已弃用但未来才会默认关闭）。
+    // ignore: deprecated_member_use
     sliderTheme: const SliderThemeData(year2023: false),
   );
 }

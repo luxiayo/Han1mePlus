@@ -25,10 +25,17 @@ class ComicHomeController extends AsyncNotifier<ComicHome> {
     final cache = ref.read(comicHomeCacheProvider);
     final saved = await cache.readComics();
     if (saved != null) {
-      unawaited(refresh());
+      unawaited(_refreshQuietly());
       return saved;
     }
     return refresh();
+  }
+
+  // 缓存命中后的后台刷新失败不影响已展示的缓存数据，只需吞掉避免未捕获异常。
+  Future<void> _refreshQuietly() async {
+    try {
+      await refresh();
+    } catch (_) {}
   }
 
   Future<ComicHome> refresh() async {
@@ -286,8 +293,9 @@ class _ComicDetailState extends ConsumerState<_ComicDetail> {
   }
 
   Future<String?> _chooseCategory() async {
-    final existing = await ref.read(comicCacheProvider.notifier).categories();
     final l10n = AppLocalizations.of(context)!;
+    final existing = await ref.read(comicCacheProvider.notifier).categories();
+    if (!mounted) return null;
     return showDialog<String>(context: context, builder: (context) => AlertDialog(title: Text(l10n.cacheCategory), content: Wrap(spacing: 8, runSpacing: 8, children: existing.map((category) => ActionChip(label: Text(category), onPressed: () => Navigator.pop(context, category))).toList()), actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel))]));
   }
 
@@ -307,12 +315,12 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   var _controls = true;
   var _mode = 0;
   var _background = Colors.black;
-  var _forward = true;
   var _ready = false;
   Offset? _pointerStart;
   var _pointers = 0;
   final _readerStore = ComicReaderStore();
   final _pageController = PageController();
+  Future<void> _saveQueue = Future<void>.value();
 
   @override
   void initState() {
@@ -326,7 +334,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     setState(() {
       _mode = state.mode;
       _background = _backgroundFromName(state.background);
-      _page = (state.progress[widget.comic.id] ?? 0).clamp(0, widget.comic.pageCount - 1) as int;
+      _page = (state.progress[widget.comic.id] ?? 0).clamp(0, widget.comic.pageCount - 1);
       _ready = true;
     });
     _prefetch();
@@ -388,7 +396,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   void _pointerUp(PointerUpEvent event, bool long) {
-    _pointers = (_pointers - 1).clamp(0, 10) as int;
+    _pointers = (_pointers - 1).clamp(0, 10);
     final start = _pointerStart;
     _pointerStart = null;
     if (start == null || _pointers > 0) return;
@@ -409,12 +417,9 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   void _change(int delta) {
-    final next = (_page + delta).clamp(0, widget.comic.pageCount - 1) as int;
+    final next = (_page + delta).clamp(0, widget.comic.pageCount - 1);
     if (next == _page) return;
-    setState(() {
-      _forward = delta > 0;
-      _page = next;
-    });
+    setState(() => _page = next);
     _pageController.animateToPage(next, duration: const Duration(milliseconds: 250), curve: Curves.easeOutCubic);
     _save();
     _prefetch();
@@ -476,7 +481,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   void _jump(int page) {
-    final next = (page - 1).clamp(0, widget.comic.pageCount - 1) as int;
+    final next = (page - 1).clamp(0, widget.comic.pageCount - 1);
     _change(next - _page);
   }
 
@@ -489,10 +494,19 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     Navigator.pop(sheetContext);
   }
 
-  Future<void> _save() async {
-    final saved = await _readerStore.load();
-    final progress = {...saved.progress, widget.comic.id: _page};
-    await _readerStore.save(ComicReaderState(mode: _mode, background: _backgroundName(_background), progress: progress));
+  Future<void> _save() {
+    // 快速翻页会连续触发整读整写，串行排队避免并发互相覆盖。
+    final next = _saveQueue.then((_) async {
+      try {
+        final saved = await _readerStore.load();
+        final progress = {...saved.progress, widget.comic.id: _page};
+        await _readerStore.save(ComicReaderState(mode: _mode, background: _backgroundName(_background), progress: progress));
+      } catch (error) {
+        debugPrint('Failed to save comic reader state: $error');
+      }
+    });
+    _saveQueue = next;
+    return next;
   }
 
   void _prefetch() {
@@ -565,11 +579,12 @@ class _ComicCachePageState extends ConsumerState<ComicCachePage> {
 
   Widget _cacheList(List<ComicCacheEntry> items, AppLocalizations l10n) {
     final categories = ['', ...{..._categories, ...items.map((item) => item.category)}];
-    if (!categories.contains(_category)) _category = '';
-    final visible = _category.isEmpty ? items : items.where((item) => item.category == _category).toList();
+    // 不在 build 中回写状态：分类被删后仅本次渲染回退到「全部」。
+    final selectedCategory = categories.contains(_category) ? _category : '';
+    final visible = selectedCategory.isEmpty ? items : items.where((item) => item.category == selectedCategory).toList();
     final all = AppLocalizations.of(context)!.all;
     String label(String category) => category.isEmpty ? all : (category == defaultComicCategory ? l10n.defaultCategory : category);
-    return Column(children: [SizedBox(height: 52, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: categories.map((category) => Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(label(category)), selected: _category == category, onSelected: (_) => setState(() => _category = category)))).toList())), Expanded(child: visible.isEmpty ? Center(child: Text(l10n.noCache)) : ListView(children: visible.map((item) => ListTile(onTap: () => _open(item), leading: CachedNetworkImage(imageUrl: item.coverUrl, width: 52, fit: BoxFit.cover), title: Text(item.title), subtitle: Text('${label(item.category)}  ${l10n.pageCount(item.pageCount)}'), trailing: IconButton(onPressed: () => ref.read(comicCacheProvider.notifier).delete(item), icon: const Icon(Icons.delete_outline)))).toList()))]);
+    return Column(children: [SizedBox(height: 52, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: categories.map((category) => Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(label(category)), selected: selectedCategory == category, onSelected: (_) => setState(() => _category = category)))).toList())), Expanded(child: visible.isEmpty ? Center(child: Text(l10n.noCache)) : ListView.builder(itemCount: visible.length, itemBuilder: (context, index) { final item = visible[index]; return ListTile(onTap: () => _open(item), leading: CachedNetworkImage(imageUrl: item.coverUrl, width: 52, fit: BoxFit.cover), title: Text(item.title), subtitle: Text('${label(item.category)}  ${l10n.pageCount(item.pageCount)}'), trailing: IconButton(onPressed: () => ref.read(comicCacheProvider.notifier).delete(item), icon: const Icon(Icons.delete_outline))); }))]);
   }
 
   Future<void> _open(ComicCacheEntry entry) async {
@@ -681,7 +696,8 @@ class _Pager extends StatelessWidget {
   Widget build(BuildContext context) => Padding(padding: const EdgeInsets.all(12), child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [IconButton(onPressed: page > 1 ? () => onChanged(page - 1) : null, icon: const Icon(Icons.chevron_left)), TextButton(onPressed: () => _showPages(context), child: Text('$page/$total')), IconButton(onPressed: page < total ? () => onChanged(page + 1) : null, icon: const Icon(Icons.chevron_right))]));
 
   Future<void> _showPages(BuildContext context) async {
-    final selected = await showModalBottomSheet<int>(context: context, showDragHandle: true, builder: (context) => SafeArea(child: GridView.builder(shrinkWrap: true, padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5), itemCount: total, itemBuilder: (_, index) => TextButton(onPressed: () => Navigator.pop(context, index + 1), child: Text('${index + 1}')))));
+    // 固定高度让 GridView 真正懒加载；shrinkWrap 会一次性构建全部页码。
+    final selected = await showModalBottomSheet<int>(context: context, showDragHandle: true, builder: (context) => SafeArea(child: SizedBox(height: 320, child: GridView.builder(padding: const EdgeInsets.all(16), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 5), itemCount: total, itemBuilder: (_, index) => TextButton(onPressed: () => Navigator.pop(context, index + 1), child: Text('${index + 1}'))))));
     if (selected != null) onChanged(selected);
   }
 }
