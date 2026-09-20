@@ -21,5 +21,13 @@ done
 # 裁剪后原签名失效，重做 ad-hoc 签名
 codesign --force --deep --sign - "$app"
 
-hdiutil create -volname Han1mePlus -srcfolder "$app" -ov -format UDZO "$out" | tail -1
+# 标准拖拽安装布局：DMG 内包含 app 本体 + 指向 /Applications 的软链
+staging="build/dmg-staging"
+rm -rf "$staging"
+mkdir -p "$staging"
+cp -R "$app" "$staging/"
+ln -s /Applications "$staging/Applications"
+
+hdiutil create -volname Han1mePlus -srcfolder "$staging" -ov -format UDZO "$out" | tail -1
+rm -rf "$staging"
 echo "已生成 $(pwd)/$out"
