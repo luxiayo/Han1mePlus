@@ -1,11 +1,11 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/app_dio.dart';
 import '../domain/models/video.dart';
 import '../domain/models/video_translation.dart';
 import 'remote/google_translate_api.dart';
 
-final videoTranslationRepositoryProvider = Provider((ref) => VideoTranslationRepository(GoogleTranslateApi(Dio())));
+final videoTranslationRepositoryProvider = Provider((ref) => VideoTranslationRepository(GoogleTranslateApi(createDio())));
 
 class VideoTranslationRepository {
   const VideoTranslationRepository(this._api);

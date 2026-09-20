@@ -54,27 +54,45 @@ class _LocalPlaylistPageState extends ConsumerState<LocalPlaylistPage> {
                 ),
               ],
       ),
-      body: ListView(
-        padding: EdgeInsets.fromLTRB(16, 12, 16, 24 + MediaQuery.paddingOf(context).bottom),
-        children: [
-          if (playlist.coverUrl?.isNotEmpty == true)
-            ClipRRect(borderRadius: BorderRadius.circular(16), child: AspectRatio(aspectRatio: 16 / 9, child: Image.network(playlist.coverUrl!, fit: BoxFit.cover, cacheWidth: 960))),
-          const SizedBox(height: 16),
-          Text(playlist.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-          if (playlist.description?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(top: 8), child: Text(playlist.description!)),
-          const SizedBox(height: 4),
-          Text('${l10n.videoCount(playlist.count)} · ${playlistSortLabel(l10n, playlist.sort)}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
-          const SizedBox(height: 16),
-          Row(children: [
-            Expanded(child: FilledButton.icon(onPressed: videos.isEmpty ? null : () => context.push('/video/${videos.first.videoCode}'), icon: const Icon(Icons.play_arrow), label: Text(l10n.playAll))),
-            const SizedBox(width: 8),
-            IconButton.filledTonal(tooltip: l10n.select, onPressed: videos.isEmpty ? null : _enterSelection, icon: const Icon(Icons.checklist_outlined)),
-          ]),
-          const SizedBox(height: 16),
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            sliver: SliverList.list(
+              children: [
+                if (playlist.coverUrl?.isNotEmpty == true)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Image.network(playlist.coverUrl!, fit: BoxFit.cover, cacheWidth: 960, errorBuilder: (_, _, _) => ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.broken_image_outlined, size: 40))),
+                    ),
+                  ),
+                const SizedBox(height: 16),
+                Text(playlist.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+                if (playlist.description?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(top: 8), child: Text(playlist.description!)),
+                const SizedBox(height: 4),
+                Text('${l10n.videoCount(playlist.count)} · ${playlistSortLabel(l10n, playlist.sort)}', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
+                const SizedBox(height: 16),
+                Row(children: [
+                  Expanded(child: FilledButton.icon(onPressed: videos.isEmpty ? null : () => context.push('/video/${videos.first.videoCode}'), icon: const Icon(Icons.play_arrow), label: Text(l10n.playAll))),
+                  const SizedBox(width: 8),
+                  IconButton.filledTonal(tooltip: l10n.select, onPressed: videos.isEmpty ? null : _enterSelection, icon: const Icon(Icons.checklist_outlined)),
+                ]),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
           if (videos.isEmpty)
-            Padding(padding: const EdgeInsets.symmetric(vertical: 48), child: Center(child: Text(l10n.playlistEmpty)))
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(vertical: 48),
+              sliver: SliverToBoxAdapter(child: Center(child: Text(l10n.playlistEmpty))),
+            )
           else
-            PlaylistVideoGrid(videos: videos, editing: _editing, selected: _selected, onToggle: _toggle),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, 0, 16, 24 + MediaQuery.paddingOf(context).bottom),
+              sliver: PlaylistVideoGrid(videos: videos, editing: _editing, selected: _selected, onToggle: _toggle),
+            ),
         ],
       ),
     );

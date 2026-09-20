@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:m3e_core/m3e_core.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../core/app_dio.dart';
 import '../../data/local/watch_repository.dart';
 import '../../data/local/webdav_sync_service.dart';
 import '../../data/local/library_repository.dart';
@@ -37,7 +37,7 @@ class WebDavSettingsPage extends ConsumerWidget {
       return;
     }
     try {
-      final service = WebDavSyncService(Dio());
+      final service = WebDavSyncService(createDio());
       final local = await ref.read(watchProvider.future);
       final merged = await service.syncWatchState(settings, local);
       await ref.read(watchProvider.notifier).replace(merged);

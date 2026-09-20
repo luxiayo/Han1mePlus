@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as path;
+import '../../core/app_dio.dart';
 import '../../core/settings.dart';
 import '../../core/platform_paths.dart';
 import '../../core/platform_service.dart';
@@ -44,7 +45,9 @@ class DownloadController extends AsyncNotifier<DownloadState> {
   final _jobs = <String, ({VideoDetail detail, VideoSource source})>{};
   Future<void> _writeQueue = Future<void>.value();
   DateTime _lastProgressWrite = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _lastProgressUiWrite = DateTime.fromMillisecondsSinceEpoch(0);
   static const _progressWriteInterval = Duration(milliseconds: 700);
+  static const _progressUiInterval = Duration(milliseconds: 250);
 
   @override
   Future<DownloadState> build() async {
@@ -195,11 +198,17 @@ class DownloadController extends AsyncNotifier<DownloadState> {
 
   Future<void> _progress(String id, DownloadTask Function(DownloadTask) update) async {
     final current = state.value ?? const DownloadState();
-    state = AsyncData(DownloadState(groups: current.groups, tasks: current.tasks.map((task) => task.id == id ? update(task) : task).toList()));
+    final updated = DownloadState(groups: current.groups, tasks: current.tasks.map((task) => task.id == id ? update(task) : task).toList());
+    // chunk 到达频率远高于帧率，UI state 也节流；数值均为绝对值，跳过中间帧不会失真，
+    // 最终状态由完成路径的 _replace 全量写入。
     final now = DateTime.now();
+    if (now.difference(_lastProgressUiWrite) >= _progressUiInterval) {
+      _lastProgressUiWrite = now;
+      state = AsyncData(updated);
+    }
     if (now.difference(_lastProgressWrite) < _progressWriteInterval) return;
     _lastProgressWrite = now;
-    await _persist(state.value ?? const DownloadState());
+    await _persist(updated);
   }
 
   Future<String?> addGroup(String name, DownloadGroupSort sort) async {
@@ -355,7 +364,7 @@ class DownloadController extends AsyncNotifier<DownloadState> {
   Future<void> _downloadVideo(String url, File destination, String taskId) async {
     final partial = File('${destination.path}.part');
     final received = await partial.exists() ? await partial.length() : 0;
-    final response = await Dio().get<ResponseBody>(url, options: Options(responseType: ResponseType.stream, headers: received > 0 ? {'Range': 'bytes=$received-'} : null));
+    final response = await createDio(receiveTimeout: const Duration(minutes: 2)).get<ResponseBody>(url, options: Options(responseType: ResponseType.stream, headers: received > 0 ? {'Range': 'bytes=$received-'} : null));
     final rangeAccepted = response.statusCode == 206;
     if (!rangeAccepted && received > 0) {
       await partial.delete();
@@ -404,7 +413,7 @@ class DownloadController extends AsyncNotifier<DownloadState> {
     if (url == null || url.isEmpty) return null;
     final cover = File(path.join(directory.path, 'cover.jpg'));
     try {
-      await Dio().download(url, cover.path);
+      await createDio().download(url, cover.path);
       return cover.path;
     } catch (_) {
       return null;

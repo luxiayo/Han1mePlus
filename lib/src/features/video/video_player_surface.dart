@@ -45,9 +45,10 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
   bool _showControls = true;
   bool _locked = false;
   double? _dragStartX;
-  double? _dragStartY;
   _DragDirection? _dragDirection;
   Duration? _seekStartPosition;
+  Duration? _dragTargetPosition;
+  DateTime _lastDragSeekAt = DateTime.fromMillisecondsSinceEpoch(0);
   double _brightness = 1;
   double _volume = 1;
   _Adjustment? _adjustment;
@@ -243,9 +244,10 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
 
   void _dragStart(DragStartDetails details) {
     _dragStartX = details.localPosition.dx;
-    _dragStartY = details.localPosition.dy;
     _dragDirection = null;
     _seekStartPosition = widget.controller.value?.value.position;
+    _dragTargetPosition = _seekStartPosition;
+    _lastDragSeekAt = DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   void _dragUpdate(DragUpdateDetails details) {
@@ -259,10 +261,16 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
       final duration = controller.value.duration;
       final sensitivity = ref.read(settingsProvider).valueOrNull?.seekSensitivity ?? .35;
       if (duration != Duration.zero) {
-        final position = (controller.value.position.inMilliseconds + details.delta.dx / size.width * duration.inMilliseconds * sensitivity).round().clamp(0, duration.inMilliseconds).toInt();
-        controller.seekTo(Duration(milliseconds: position));
-        final startMs = _seekStartPosition?.inMilliseconds ?? position;
-        setState(() => _adjustment = _Adjustment.seek(position - startMs, Duration(milliseconds: position), duration));
+        final startMs = _seekStartPosition?.inMilliseconds ?? controller.value.position.inMilliseconds;
+        final target = (startMs + (details.delta.dx / size.width * duration.inMilliseconds * sensitivity)).round().clamp(0, duration.inMilliseconds).toInt();
+        _dragTargetPosition = Duration(milliseconds: target);
+        setState(() => _adjustment = _Adjustment.seek(target - startMs, Duration(milliseconds: target), duration));
+        // 拖动期间节流 seek，最终位置在 _dragEnd 补齐。
+        final now = DateTime.now();
+        if (now.difference(_lastDragSeekAt) >= const Duration(milliseconds: 150)) {
+          _lastDragSeekAt = now;
+          controller.seekTo(Duration(milliseconds: target));
+        }
       }
       return;
     }
@@ -270,7 +278,13 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
     if (startX < size.width / 2) { _brightness = value.clamp(0.01, 1).toDouble(); PlatformService.setScreenBrightness(_brightness); setState(() => _adjustment = _Adjustment.brightness(_brightness)); }
     else { _volume = value.clamp(0, 1).toDouble(); unawaited(_applyVolume(controller, _volume)); setState(() => _adjustment = _Adjustment.volume(_volume)); }
   }
-  void _dragEnd(DragEndDetails details) { _dragStartX = null; _dragStartY = null; _dragDirection = null; _seekStartPosition = null; _adjustmentClearTimer?.cancel(); _adjustmentClearTimer = Timer(const Duration(milliseconds: 700), () { if (mounted) setState(() => _adjustment = null); }); }
+  void _dragEnd(DragEndDetails details) {
+    if (_dragDirection == _DragDirection.horizontal) {
+      final target = _dragTargetPosition;
+      if (target != null) widget.controller.value?.seekTo(target);
+    }
+    _dragStartX = null; _dragDirection = null; _seekStartPosition = null; _dragTargetPosition = null; _adjustmentClearTimer?.cancel(); _adjustmentClearTimer = Timer(const Duration(milliseconds: 700), () { if (mounted) setState(() => _adjustment = null); });
+  }
 
   Future<void> _enterPictureInPicture(VideoPlayerController controller) async {
     var entered = false;

@@ -35,6 +35,13 @@ class WindowsConnectionFactory {
 
   Duration get _timeout => Duration(seconds: dohTimeoutSeconds);
 
+  late final _doh = _DohResolver(
+    preset: dohPreset,
+    customUrl: dohCustomUrl,
+    bootstrapIps: dohBootstrapIps,
+    timeout: _timeout,
+  );
+
   Future<ConnectionTask<Socket>> call(Uri uri, String? proxyHost, int? proxyPort) async {
     if (proxyHost != null) return Socket.startConnect(proxyHost, proxyPort ?? uri.port);
     final port = uri.hasPort ? uri.port : (uri.isScheme('https') ? 443 : 80);
@@ -43,12 +50,7 @@ class WindowsConnectionFactory {
     }
     if (!useDoh) return _startConnect(uri.host, port);
     try {
-      final addresses = await _DohResolver(
-        preset: dohPreset,
-        customUrl: dohCustomUrl,
-        bootstrapIps: dohBootstrapIps,
-        timeout: _timeout,
-      ).resolve(uri.host);
+      final addresses = await _doh.resolve(uri.host);
       if (addresses.isNotEmpty) return _connect(uri, [...addresses, uri.host], port);
     } catch (_) {}
     return _connect(uri, [uri.host], port);
@@ -86,7 +88,7 @@ class WindowsConnectionFactory {
 class _DohResolver {
   static final _cache = <String, _CachedAddresses>{};
 
-  const _DohResolver({
+  _DohResolver({
     required this.preset,
     required this.customUrl,
     required this.bootstrapIps,
@@ -118,39 +120,43 @@ class _DohResolver {
         _ => null,
       };
 
+  HttpClient? _queryClient;
+
+  HttpClient get _client => _queryClient ??= (HttpClient()..connectionTimeout = timeout);
+
   Future<List<String>> _query(Uri endpoint, String host, String type) async {
-    final client = HttpClient()..connectionTimeout = timeout;
+    final client = _client;
     final bootstrap = _bootstrapIps;
     if (bootstrap.isNotEmpty) {
       client.connectionFactory = (uri, proxyHost, proxyPort) async {
         if (proxyHost != null) return Socket.startConnect(proxyHost, proxyPort ?? uri.port);
         if (uri.host != endpoint.host) return SecureSocket.startConnect(uri.host, uri.port);
-        final plain = await Socket.connect(bootstrap.first, uri.port, timeout: timeout);
-        try {
-          final secure = await SecureSocket.secure(plain, host: uri.host);
-          return ConnectionTask.fromSocket(Future.value(secure), secure.destroy);
-        } catch (error) {
-          plain.destroy();
-          rethrow;
+        // 逐个尝试 bootstrap IP，避免单个 IP 失效导致 DoH 整体不可用。
+        for (final ip in bootstrap) {
+          Socket? plain;
+          try {
+            plain = await Socket.connect(ip, uri.port, timeout: timeout);
+            final secure = await SecureSocket.secure(plain, host: uri.host);
+            return ConnectionTask.fromSocket(Future.value(secure), secure.destroy);
+          } catch (_) {
+            plain?.destroy();
+          }
         }
+        throw const SocketException('Failed to connect to any DoH bootstrap IP');
       };
     }
-    try {
-      final request = await client.getUrl(endpoint.replace(queryParameters: {'name': host, 'type': type}));
-      request.headers.set(HttpHeaders.acceptHeader, 'application/dns-json');
-      final response = await request.close();
-      if (response.statusCode != HttpStatus.ok) return const [];
-      final json = jsonDecode(await utf8.decoder.bind(response).join());
-      if (json is! Map) return const [];
-      return (json['Answer'] as List? ?? const [])
-          .whereType<Map>()
-          .map((answer) => answer['data'])
-          .whereType<String>()
-          .where((address) => InternetAddress.tryParse(address) != null)
-          .toList(growable: false);
-    } finally {
-      client.close(force: true);
-    }
+    final request = await client.getUrl(endpoint.replace(queryParameters: {'name': host, 'type': type}));
+    request.headers.set(HttpHeaders.acceptHeader, 'application/dns-json');
+    final response = await request.close();
+    if (response.statusCode != HttpStatus.ok) return const [];
+    final json = jsonDecode(await utf8.decoder.bind(response).join());
+    if (json is! Map) return const [];
+    return (json['Answer'] as List? ?? const [])
+        .whereType<Map>()
+        .map((answer) => answer['data'])
+        .whereType<String>()
+        .where((address) => InternetAddress.tryParse(address) != null)
+        .toList(growable: false);
   }
 
   List<String> get _bootstrapIps {

@@ -27,7 +27,7 @@ class PlaylistCoverCard extends StatelessWidget {
           onTap: onTap,
           onLongPress: onLongPress,
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: SizedBox(width: double.infinity, child: playlist.coverUrl?.isNotEmpty == true ? Image.network(playlist.coverUrl!, fit: BoxFit.cover, cacheWidth: 480) : ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.playlist_play, size: 40)))),
+            Expanded(child: SizedBox(width: double.infinity, child: playlist.coverUrl?.isNotEmpty == true ? Image.network(playlist.coverUrl!, fit: BoxFit.cover, cacheWidth: 480, errorBuilder: (_, _, _) => ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.broken_image_outlined, size: 28))) : ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.playlist_play, size: 40)))),
             Padding(padding: const EdgeInsets.fromLTRB(10, 8, 10, 2), child: Text(playlist.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.titleSmall)),
             Padding(padding: const EdgeInsets.fromLTRB(10, 0, 10, 8), child: Text(AppLocalizations.of(context)!.videoCount(playlist.count), style: Theme.of(context).textTheme.bodySmall)),
           ]),
@@ -35,6 +35,7 @@ class PlaylistCoverCard extends StatelessWidget {
       );
 }
 
+/// sliver 组件，必须放在 CustomScrollView 的 slivers 中（懒加载，条目多时不全量构建）。
 class PlaylistVideoGrid extends StatelessWidget {
   const PlaylistVideoGrid({super.key, required this.videos, required this.editing, required this.selected, required this.onToggle});
 
@@ -44,27 +45,27 @@ class PlaylistVideoGrid extends StatelessWidget {
   final ValueChanged<FollowingVideo> onToggle;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-        builder: (context, constraints) {
+  Widget build(BuildContext context) => SliverLayoutBuilder(
+        builder: (context, sliverConstraints) {
           const spacing = 10.0;
-          final cardWidth = (constraints.maxWidth - spacing) / 2;
+          final cardWidth = (sliverConstraints.crossAxisExtent - spacing) / 2;
           final cardHeight = cardWidth * 9 / 16 + videoCardMetaHeight(context) + 36;
-          return GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+          return SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: spacing, mainAxisExtent: cardHeight),
-            itemCount: videos.length,
-            itemBuilder: (context, index) {
-              final video = videos[index];
-              final isSelected = selected.contains(video.videoCode);
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  VideoCardTile(video: followingVideoCard(video), horizontal: true, onTap: editing ? () => onToggle(video) : null, onLongPress: editing ? null : () => onToggle(video)),
-                  if (editing) Positioned(top: 4, right: 4, child: Checkbox(value: isSelected, onChanged: (value) => onToggle(video))),
-                ],
-              );
-            },
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final video = videos[index];
+                final isSelected = selected.contains(video.videoCode);
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    VideoCardTile(video: followingVideoCard(video), horizontal: true, onTap: editing ? () => onToggle(video) : null, onLongPress: editing ? null : () => onToggle(video)),
+                    if (editing) Positioned(top: 4, right: 4, child: Checkbox(value: isSelected, onChanged: (value) => onToggle(video))),
+                  ],
+                );
+              },
+              childCount: videos.length,
+            ),
           );
         },
       );

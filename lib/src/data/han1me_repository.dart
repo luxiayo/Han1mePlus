@@ -74,7 +74,6 @@ class Han1meRepository {
   Future<void> updatePlaylist(String baseUrl, String token, String id, String title, String description, bool delete) => _api.updatePlaylist(baseUrl, token, id, title, description, delete);
   Future<void> removePlaylistItem(String baseUrl, String token, String id) => _api.removePlaylistItem(baseUrl, token, id);
   Future<void> deleteHistory(String baseUrl, String token, String id) => _api.deleteHistory(baseUrl, token, id);
-  Future<List<VideoCard>> related(String baseUrl, String id) => _merge('related:$baseUrl:$id', () => _api.related(baseUrl, id));
   Future<CommentPage> comments(String baseUrl, String id, {String type = 'video'}) => _merge('comments:$baseUrl:$type:$id', () => _api.comments(baseUrl, id, type: type));
   Future<CommentPage> replies(String baseUrl, String id) => _api.replies(baseUrl, id);
   Future<void> postComment(String baseUrl, String token, String userId, String type, String targetId, String text) => _api.postComment(baseUrl, token, userId, type, targetId, text);

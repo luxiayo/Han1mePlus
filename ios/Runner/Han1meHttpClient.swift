@@ -32,16 +32,27 @@ final class Han1meHttpClient {
     let userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36"
 
     private let delegate = Han1meSessionDelegate()
-    private lazy var session: URLSession = {
+    private let trustAllDelegate: Han1meSessionDelegate = {
+        let delegate = Han1meSessionDelegate()
+        delegate.trustAllCertificates = true
+        return delegate
+    }()
+
+    private static func makeSession(delegate: Han1meSessionDelegate) -> URLSession {
         let config = URLSessionConfiguration.default
         config.httpShouldSetCookies = false
         config.httpCookieAcceptPolicy = .never
         return URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
-    }()
+    }
+
+    private lazy var session = Han1meHttpClient.makeSession(delegate: delegate)
+    private lazy var trustAllSession = Han1meHttpClient.makeSession(delegate: trustAllDelegate)
 
     private var responseCookies: [String: [String: String]] = [:]
     private var networkSettings = Han1meHttpStore.loadNetworkSettings()
+    // 串行队列只做状态读写；请求本身在 workQueue 上并发执行，避免单个慢请求阻塞全部网络调用。
     private let queue = DispatchQueue(label: "com.liar.han1meplus.http", qos: .userInitiated)
+    private let workQueue = DispatchQueue(label: "com.liar.han1meplus.http.work", qos: .userInitiated, attributes: .concurrent)
 
     func setNetworkSettings(_ settings: Han1meNetworkSettings) {
         queue.sync {
@@ -76,7 +87,7 @@ final class Han1meHttpClient {
         json: Bool = false,
         completion: @escaping (Result<Han1meHttpResponse, Error>) -> Void
     ) {
-        queue.async {
+        workQueue.async {
             do {
                 let response = try self.performRequest(
                     urlString: url,
@@ -95,7 +106,7 @@ final class Han1meHttpClient {
     }
 
     func download(url: String, path: String, completion: @escaping (Result<Void, Error>) -> Void) {
-        queue.async {
+        workQueue.async {
             do {
                 let bytes = try self.rawBody(
                     urlString: url,
@@ -116,24 +127,23 @@ final class Han1meHttpClient {
     }
 
     private func rawBody(urlString: String, headers: [String: String], allowCloudflareRetry: Bool = true) throws -> Data {
-        let settings = networkSettings
+        let settings = queue.sync { networkSettings }
         guard let originalURL = URL(string: urlString), let host = originalURL.host else {
             throw HttpError.invalidUrl
         }
-        let resolved = try Han1meDnsResolver.resolve(hostname: host, settings: settings)
+        let resolved = Han1meDnsResolver.resolve(hostname: host, settings: settings)
         let targets = resolved ?? [host]
         var lastError: Error = HttpError.requestFailed("Download failed")
         for target in targets {
             do {
                 let requestURL = rewrite(url: originalURL, host: host, target: target)
-                delegate.trustAllCertificates = resolved != nil
                 var request = URLRequest(url: requestURL)
                 request.httpMethod = "GET"
                 request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
                 if resolved != nil { request.setValue(host, forHTTPHeaderField: "Host") }
                 for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
                 attachCookies(to: &request, host: host)
-                let (data, response) = try session.syncData(for: request)
+                let (data, response) = try (resolved != nil ? trustAllSession : session).syncData(for: request)
                 guard let http = response as? HTTPURLResponse else { throw HttpError.requestFailed("Invalid response") }
                 storeResponseCookies(from: http, host: host, url: requestURL.absoluteString)
                 if http.statusCode == 403,
@@ -162,18 +172,17 @@ final class Han1meHttpClient {
         json: Bool,
         allowCloudflareRetry: Bool
     ) throws -> Han1meHttpResponse {
-        let settings = networkSettings
+        let settings = queue.sync { networkSettings }
         guard let originalURL = URL(string: urlString), let host = originalURL.host else {
             throw HttpError.invalidUrl
         }
-        let resolved = try Han1meDnsResolver.resolve(hostname: host, settings: settings)
+        let resolved = Han1meDnsResolver.resolve(hostname: host, settings: settings)
         let targets = resolved ?? [host]
         var lastError: Error = HttpError.requestFailed("Request failed")
 
         for target in targets {
             do {
                 let requestURL = rewrite(url: originalURL, host: host, target: target)
-                delegate.trustAllCertificates = resolved != nil
                 var request = URLRequest(url: requestURL)
                 request.httpMethod = method
                 request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
@@ -191,7 +200,7 @@ final class Han1meHttpClient {
                     }
                 }
 
-                let (bodyData, response) = try session.syncData(for: request)
+                let (bodyData, response) = try (resolved != nil ? trustAllSession : session).syncData(for: request)
                 guard let http = response as? HTTPURLResponse else { throw HttpError.requestFailed("Invalid response") }
                 storeResponseCookies(from: http, host: host, url: http.url?.absoluteString ?? requestURL.absoluteString)
 
@@ -243,7 +252,8 @@ final class Han1meHttpClient {
             let value = String(pair[pair.index(after: index)...]).trimmingCharacters(in: .whitespaces)
             if !name.isEmpty { map[name] = value }
         }
-        responseCookies[host, default: [:]].forEach { map[$0.key] = $0.value }
+        let sessionCookies: [String: String] = queue.sync { responseCookies[host] ?? [:] }
+        sessionCookies.forEach { map[$0.key] = $0.value }
         let header = map.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
         if !header.isEmpty { request.setValue(header, forHTTPHeaderField: "Cookie") }
     }
@@ -258,7 +268,7 @@ final class Han1meHttpClient {
         }
         guard !setCookies.isEmpty else { return }
         let merged = setCookies.joined(separator: "; ")
-        var map = responseCookies[host, default: [:]]
+        var map: [String: String] = [:]
         for part in merged.split(separator: ";") {
             let pair = part.trimmingCharacters(in: .whitespaces)
             guard let index = pair.firstIndex(of: "=") else { continue }
@@ -266,7 +276,11 @@ final class Han1meHttpClient {
             let value = String(pair[pair.index(after: index)...]).trimmingCharacters(in: .whitespaces)
             if !name.isEmpty { map[name] = value }
         }
-        responseCookies[host] = map
+        queue.sync {
+            var combined = responseCookies[host] ?? [:]
+            map.forEach { combined[$0.key] = $0.value }
+            responseCookies[host] = combined
+        }
         Han1meHttpStore.saveCookies(merged, url: url)
     }
 

@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'src/app.dart';
+import 'src/core/app_dio.dart';
 import 'src/core/media_player_initializer.dart';
 import 'src/core/playback_speed_policy.dart';
 import 'src/core/settings.dart';
@@ -41,7 +41,7 @@ Future<void> _postLaunch() async {
   try {
     await Future.wait([
       ShaderService.copyToStorage(),
-      UpdateInstaller(Dio()).removeStaleUpdate(),
+      UpdateInstaller(createDio()).removeStaleUpdate(),
     ]);
   } catch (_) {}
 }

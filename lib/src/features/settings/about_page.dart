@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:dio/dio.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../core/app_dio.dart';
 import '../../core/app_info.dart';
 import '../../data/remote/update_checker.dart';
 import '../../data/local/update_installer.dart';
@@ -47,7 +47,7 @@ class AboutPage extends ConsumerWidget {
 
    Future<void> _checkUpdate(BuildContext context, bool useUpdateMirror) async {
     final l10n = AppLocalizations.of(context)!;
-    final update = await UpdateChecker(Dio()).check();
+    final update = await UpdateChecker(createDio()).check();
     if (!context.mounted) return;
     if (update == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.latestVersion)));
@@ -74,7 +74,7 @@ class AboutPage extends ConsumerWidget {
                 ? null
                 : () async {
                     Navigator.pop(dialogContext);
-                    await UpdateInstaller(Dio()).downloadAndInstall(
+                    await UpdateInstaller(createDio()).downloadAndInstall(
                       update.downloadUrl,
                       (_) {},
                       useMirror: useUpdateMirror,

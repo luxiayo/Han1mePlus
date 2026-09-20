@@ -1,12 +1,12 @@
 import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:m3e_core/m3e_core.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../core/app_dio.dart';
 import '../core/platform_service.dart';
 import '../core/video_player_shutdown.dart';
 import '../data/local/update_installer.dart';
@@ -78,7 +78,7 @@ class _AppStartupEffectsState extends ConsumerState<AppStartupEffects> {
   }
 
   Future<void> _checkForUpdate(bool useUpdateMirror) async {
-    final update = await UpdateChecker(Dio()).check();
+    final update = await UpdateChecker(createDio()).check();
     if (!mounted || update == null) return;
     final context = widget.navigatorKey.currentContext;
     if (context == null) return;
@@ -138,7 +138,7 @@ class _StartupUpdateDownloadState extends State<_StartupUpdateDownload> {
 
   Future<void> _download() async {
     try {
-      await UpdateInstaller(Dio()).downloadAndInstall(widget.url, (value) {
+      await UpdateInstaller(createDio()).downloadAndInstall(widget.url, (value) {
         if (mounted) setState(() => _progress = value);
       }, useMirror: widget.useMirror);
       if (mounted) Navigator.pop(context);

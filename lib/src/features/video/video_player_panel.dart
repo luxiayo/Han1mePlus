@@ -52,6 +52,7 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
   final _pendingInitialize = <VideoPlayerController, Future<void>>{};
   DateTime _lastSaved = DateTime.fromMillisecondsSinceEpoch(0);
   var _autoNextTriggered = false;
+  var _loopSeekPending = false;
   bool? _wasPlaying;
   Duration _watched = Duration.zero;
   DateTime? _lastWatchedAt;
@@ -338,10 +339,15 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
       if (value.isPlaying) unawaited(VideoPlayerShutdown.pauseAllExcept(controller));
       widget.onPlayingChanged?.call(value.isPlaying);
     }
-    if (value.duration > Duration.zero && value.position >= value.duration) {
+    final completed = value.duration > Duration.zero && value.position >= value.duration;
+    if (completed) {
       if (ref.read(settingsProvider).valueOrNull?.loopPlayback == true) {
-        unawaited(controller.seekTo(Duration.zero));
-        if (!value.isPlaying) unawaited(controller.play());
+        // seekTo(0) 后位置要若干个 tick 才会复位，期间跳过重复 seek，避免 seek 风暴。
+        if (!_loopSeekPending) {
+          _loopSeekPending = true;
+          unawaited(controller.seekTo(Duration.zero));
+          if (!value.isPlaying) unawaited(controller.play());
+        }
         return;
       }
       if (!_autoNextTriggered && ref.read(settingsProvider).valueOrNull?.autoPlayNext == true && widget.onNext != null) {
@@ -349,10 +355,12 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
         widget.onNext!();
         return;
       }
+    } else {
+      _loopSeekPending = false;
     }
+    if (now.difference(_lastSaved).inSeconds < 5) return;
     if (ref.read(settingsProvider).valueOrNull?.incognitoPlayback == true) return;
-    if (DateTime.now().difference(_lastSaved).inSeconds < 5) return;
-    _lastSaved = DateTime.now();
+    _lastSaved = now;
     ref.read(watchProvider.notifier).progress(id: widget.video.id, title: widget.video.title, coverUrl: widget.video.coverUrl, positionMs: value.position.inMilliseconds, durationMs: value.duration.inMilliseconds);
   }
 

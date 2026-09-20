@@ -32,6 +32,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.net.InetAddress
 import java.nio.charset.Charset
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
@@ -76,7 +77,8 @@ class MainActivity : FlutterActivity() {
     private val channelName = "com.liar.han1meplus/http"
     private val platformChannelName = "com.liar.han1meplus/platform"
     private val userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36"
-    private val responseCookies = mutableMapOf<String, List<Cookie>>()
+    // OkHttp 工作线程并发读写，必须用并发容器，否则 HashMap 竞态可能丢 cookie 甚至抛异常。
+    private val responseCookies = ConcurrentHashMap<String, List<Cookie>>()
     @Volatile private var networkSettings = NetworkSettings()
     private var emergencyExitEnabled = false
     private var volumeUpPresses = 0
@@ -514,7 +516,9 @@ private class CloudflareInterceptor(private val context: Context) : Interceptor 
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
                     .putExtra(CloudflareActivity.requestUrlKey, request.url.toString()),
             )
-            latch.await()
+            // 后台启动限制（Android 10+）可能让 Activity 根本不创建、onFinished 永不触发；
+            // 无限期 await 会挂死 OkHttp 线程，必须有界。
+            latch.await(120, TimeUnit.SECONDS)
         } catch (_: Exception) {
             CloudflareActivity.onFinished?.invoke()
         }

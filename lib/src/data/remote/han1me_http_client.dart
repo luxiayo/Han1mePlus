@@ -22,6 +22,9 @@ class Han1meHttpClient {
   static final _desktopCookies = <String, String>{};
   static bool get _isDesktop => isDesktopHttpPlatform;
 
+  // HttpOverrides.global 只在 HttpClient 构造时生效，因此网络设置（代理/DoH）变更后必须作废重建。
+  HttpClient? _sharedDesktopClient;
+
   static const userAgent = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36';
 
   Future<void> saveCookies(String cookies, {String? url}) async {
@@ -70,6 +73,7 @@ class Han1meHttpClient {
         dohBootstrapIps: dohBootstrapIps,
         dohTimeoutSeconds: dohTimeoutSeconds,
       );
+      _resetDesktopClient();
       return;
     }
     await _channel.invokeMethod<void>('setNetworkSettings', {'useBuiltInHosts': useBuiltInHosts, 'useDoh': useDoh, 'dohPreset': dohPreset, 'dohCustomUrl': dohCustomUrl, 'dohBootstrapIps': dohBootstrapIps, 'dohTimeoutSeconds': dohTimeoutSeconds});
@@ -85,20 +89,16 @@ class Han1meHttpClient {
       return;
     }
     final client = _desktopClient();
-    try {
-      final request = await client.getUrl(Uri.parse(url));
-      request.headers.set(HttpHeaders.userAgentHeader, userAgent);
-      final cookie = _cookiesFor(request.uri);
-      if (cookie.isNotEmpty) request.headers.set(HttpHeaders.cookieHeader, cookie);
-      final response = await request.close();
-      if (response.statusCode < 200 || response.statusCode >= 300) throw HttpException('Download failed: HTTP ${response.statusCode}', uri: request.uri);
-      final output = File(path);
-      await output.parent.create(recursive: true);
-      await response.pipe(output.openWrite());
-      _saveResponseCookies(request.uri, response.cookies);
-    } finally {
-      client.close(force: true);
-    }
+    final request = await client.getUrl(Uri.parse(url));
+    request.headers.set(HttpHeaders.userAgentHeader, userAgent);
+    final cookie = _cookiesFor(request.uri);
+    if (cookie.isNotEmpty) request.headers.set(HttpHeaders.cookieHeader, cookie);
+    final response = await request.close();
+    if (response.statusCode < 200 || response.statusCode >= 300) throw HttpException('Download failed: HTTP ${response.statusCode}', uri: request.uri);
+    final output = File(path);
+    await output.parent.create(recursive: true);
+    await response.pipe(output.openWrite());
+    _saveResponseCookies(request.uri, response.cookies);
   }
 
   Future<Han1meHttpResponse> post(String url, Map<String, String> data, {Map<String, String>? headers, String? responseCharset}) =>
@@ -132,30 +132,26 @@ class Han1meHttpClient {
 
   Future<Han1meHttpResponse> _desktopRequest(String url, {required String method, Map<String, String>? data, Map<String, String>? headers, String? responseCharset, required bool json}) async {
     final client = _desktopClient();
-    try {
-      final request = await client.openUrl(method, Uri.parse(url));
-      request.headers.set(HttpHeaders.userAgentHeader, userAgent);
-      final cookie = _cookiesFor(request.uri);
-      if (cookie.isNotEmpty) request.headers.set(HttpHeaders.cookieHeader, cookie);
-      headers?.forEach(request.headers.set);
-      if (data != null) {
-        if (json) {
-          request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
-          request.write(jsonEncode(data));
-        } else {
-          request.headers.contentType = ContentType('application', 'x-www-form-urlencoded', charset: 'utf-8');
-          request.write(data.entries.map((entry) => '${Uri.encodeQueryComponent(entry.key)}=${Uri.encodeQueryComponent(entry.value)}').join('&'));
-        }
+    final request = await client.openUrl(method, Uri.parse(url));
+    request.headers.set(HttpHeaders.userAgentHeader, userAgent);
+    final cookie = _cookiesFor(request.uri);
+    if (cookie.isNotEmpty) request.headers.set(HttpHeaders.cookieHeader, cookie);
+    headers?.forEach(request.headers.set);
+    if (data != null) {
+      if (json) {
+        request.headers.set(HttpHeaders.contentTypeHeader, 'application/json');
+        request.write(jsonEncode(data));
+      } else {
+        request.headers.contentType = ContentType('application', 'x-www-form-urlencoded', charset: 'utf-8');
+        request.write(data.entries.map((entry) => '${Uri.encodeQueryComponent(entry.key)}=${Uri.encodeQueryComponent(entry.value)}').join('&'));
       }
-      final response = await request.close();
-      final bytes = await response.fold<List<int>>([], (value, chunk) => value..addAll(chunk));
-      _saveResponseCookies(request.uri, response.cookies);
-      final responseHeaders = <String, List<String>>{};
-      response.headers.forEach((name, values) => responseHeaders[name] = values);
-      return Han1meHttpResponse(statusCode: response.statusCode, body: _decode(bytes, responseCharset), headers: responseHeaders, url: response.redirects.isEmpty ? request.uri.toString() : response.redirects.last.location.toString());
-    } finally {
-      client.close(force: true);
     }
+    final response = await request.close();
+    final bytes = await response.fold<List<int>>([], (value, chunk) => value..addAll(chunk));
+    _saveResponseCookies(request.uri, response.cookies);
+    final responseHeaders = <String, List<String>>{};
+    response.headers.forEach((name, values) => responseHeaders[name] = values);
+    return Han1meHttpResponse(statusCode: response.statusCode, body: _decode(bytes, responseCharset), headers: responseHeaders, url: response.redirects.isEmpty ? request.uri.toString() : response.redirects.last.location.toString());
   }
 
   String _decode(List<int> bytes, String? charset) {
@@ -163,7 +159,17 @@ class Han1meHttpClient {
     return Encoding.getByName(charset ?? 'utf-8')?.decode(bytes) ?? utf8.decode(bytes, allowMalformed: true);
   }
 
-  HttpClient _desktopClient() => HttpClient();
+  HttpClient _desktopClient() {
+    final existing = _sharedDesktopClient;
+    if (existing != null) return existing;
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);
+    return _sharedDesktopClient = client;
+  }
+
+  void _resetDesktopClient() {
+    _sharedDesktopClient?.close(force: false);
+    _sharedDesktopClient = null;
+  }
 
   String _cookiesFor(Uri uri) => _desktopCookies.entries.where((entry) => uri.host == entry.key || uri.host.endsWith('.${entry.key}')).map((entry) => entry.value).join('; ');
 

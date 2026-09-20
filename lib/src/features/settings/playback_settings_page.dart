@@ -6,7 +6,6 @@ import 'package:m3e_core/m3e_core.dart';
 import '../../../l10n/app_localizations.dart';
 import 'settings_controller.dart';
 import 'keyframes_page.dart';
-import 'player_settings_page.dart';
 import 'settings_card_list.dart';
 
 class PlaybackSettingsPage extends ConsumerWidget {

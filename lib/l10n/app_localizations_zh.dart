@@ -1730,6 +1730,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get playlistSortByName => '标题';
 }
 
+/// The translations for Chinese, as used in Taiwan (`zh_TW`).
 class AppLocalizationsZhTw extends AppLocalizationsZh {
   AppLocalizationsZhTw() : super('zh_TW');
 

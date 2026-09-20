@@ -45,23 +45,45 @@ class _RemotePlaylistPageState extends ConsumerState<RemotePlaylistPage> {
           if (snapshot.hasError) return Center(child: Text(l10n.loadFailed('${snapshot.error}')));
           if (!snapshot.hasData) return const Center(child: M3EContainedLoadingIndicator());
           final playlist = snapshot.data!;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-            children: [
-              if (playlist.playlist.coverUrl?.isNotEmpty == true) ClipRRect(borderRadius: BorderRadius.circular(16), child: AspectRatio(aspectRatio: 16 / 9, child: Image.network(playlist.playlist.coverUrl!, fit: BoxFit.cover, cacheWidth: 960))),
-              const SizedBox(height: 16),
-              Text(playlist.playlist.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
-              const SizedBox(height: 8),
-              if (playlist.author?.isNotEmpty == true) Text(l10n.playlistCreatedBy(playlist.author!), style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 4),
-              Text(l10n.playlistStats(playlist.playlist.count, playlist.viewCount ?? 0), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
-              if (playlist.description?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(top: 8), child: Text(playlist.description!)),
-              const SizedBox(height: 16),
-              Row(children: [Expanded(child: FilledButton.icon(onPressed: playlist.videos.isEmpty ? null : () => context.push('/video/${playlist.videos.first.videoCode}'), icon: const Icon(Icons.play_arrow), label: Text(l10n.playAll))), const SizedBox(width: 8), IconButton.filledTonal(onPressed: account?.csrfToken == null ? null : () => _edit(playlist), icon: const Icon(Icons.edit_outlined)), const SizedBox(width: 8), IconButton.filledTonal(onPressed: () => Share.share('https://hanimeone.me/playlist?list=${playlist.playlist.id}', subject: playlist.playlist.title), icon: const Icon(Icons.share_outlined))]),
-              const SizedBox(height: 20),
-              Row(children: [for (final value in ['latest', 'popular', 'oldest']) Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(_sortLabel(l10n, value)), selected: _sort == value, onSelected: _editing ? null : (_) => _changeSort(value))), const Spacer(), TextButton.icon(onPressed: _editing ? _removeSelected : () => setState(() => _editing = true), icon: Icon(_editing ? Icons.delete_outline : Icons.edit_outlined), label: Text(_editing ? l10n.delete : l10n.edit))]),
-              const SizedBox(height: 4),
-              if (playlist.videos.isEmpty) Padding(padding: const EdgeInsets.all(24), child: Center(child: Text(l10n.playlistEmpty))) else _RemotePlaylistVideoGrid(videos: playlist.videos, editing: _editing, selected: _selectedItems, onToggle: _toggleItem),
+          return CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                sliver: SliverList.list(
+                  children: [
+                    if (playlist.playlist.coverUrl?.isNotEmpty == true)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: Image.network(playlist.playlist.coverUrl!, fit: BoxFit.cover, cacheWidth: 960, errorBuilder: (_, _, _) => ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest, child: const Icon(Icons.broken_image_outlined, size: 40))),
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    Text(playlist.playlist.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
+                    const SizedBox(height: 8),
+                    if (playlist.author?.isNotEmpty == true) Text(l10n.playlistCreatedBy(playlist.author!), style: Theme.of(context).textTheme.bodyMedium),
+                    const SizedBox(height: 4),
+                    Text(l10n.playlistStats(playlist.playlist.count, playlist.viewCount ?? 0), style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline)),
+                    if (playlist.description?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(top: 8), child: Text(playlist.description!)),
+                    const SizedBox(height: 16),
+                    Row(children: [Expanded(child: FilledButton.icon(onPressed: playlist.videos.isEmpty ? null : () => context.push('/video/${playlist.videos.first.videoCode}'), icon: const Icon(Icons.play_arrow), label: Text(l10n.playAll))), const SizedBox(width: 8), IconButton.filledTonal(onPressed: account?.csrfToken == null ? null : () => _edit(playlist), icon: const Icon(Icons.edit_outlined)), const SizedBox(width: 8), IconButton.filledTonal(onPressed: () => Share.share('https://hanimeone.me/playlist?list=${playlist.playlist.id}', subject: playlist.playlist.title), icon: const Icon(Icons.share_outlined))]),
+                    const SizedBox(height: 20),
+                    Row(children: [for (final value in ['latest', 'popular', 'oldest']) Padding(padding: const EdgeInsets.only(right: 8), child: ChoiceChip(label: Text(_sortLabel(l10n, value)), selected: _sort == value, onSelected: _editing ? null : (_) => _changeSort(value))), const Spacer(), TextButton.icon(onPressed: _editing ? _removeSelected : () => setState(() => _editing = true), icon: Icon(_editing ? Icons.delete_outline : Icons.edit_outlined), label: Text(_editing ? l10n.delete : l10n.edit))]),
+                    const SizedBox(height: 4),
+                  ],
+                ),
+              ),
+              if (playlist.videos.isEmpty)
+                SliverPadding(
+                  padding: const EdgeInsets.all(24),
+                  sliver: SliverToBoxAdapter(child: Center(child: Text(l10n.playlistEmpty))),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                  sliver: _RemotePlaylistVideoGrid(videos: playlist.videos, editing: _editing, selected: _selectedItems, onToggle: _toggleItem),
+                ),
             ],
           );
         },
@@ -119,27 +141,27 @@ class _RemotePlaylistVideoGrid extends StatelessWidget {
   final ValueChanged<FollowingVideo> onToggle;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-        builder: (context, constraints) {
+  Widget build(BuildContext context) => SliverLayoutBuilder(
+        builder: (context, sliverConstraints) {
           const spacing = 10.0;
-          final cardWidth = (constraints.maxWidth - spacing) / 2;
+          final cardWidth = (sliverConstraints.crossAxisExtent - spacing) / 2;
           final cardHeight = cardWidth * 9 / 16 + videoCardMetaHeight(context) + 36;
-          return GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
+          return SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 12, crossAxisSpacing: spacing, mainAxisExtent: cardHeight),
-            itemCount: videos.length,
-            itemBuilder: (context, index) {
-              final video = videos[index];
-              final isSelected = selected.contains(video.playlistItemId);
-              return Stack(
-                fit: StackFit.expand,
-                children: [
-                  VideoCardTile(video: followingVideoCard(video), horizontal: true, onTap: editing ? () => onToggle(video) : null),
-                  if (editing) Positioned(top: 4, right: 4, child: Checkbox(value: isSelected, onChanged: (value) => onToggle(video))),
-                ],
-              );
-            },
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final video = videos[index];
+                final isSelected = selected.contains(video.playlistItemId);
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    VideoCardTile(video: followingVideoCard(video), horizontal: true, onTap: editing ? () => onToggle(video) : null),
+                    if (editing) Positioned(top: 4, right: 4, child: Checkbox(value: isSelected, onChanged: (value) => onToggle(video))),
+                  ],
+                );
+              },
+              childCount: videos.length,
+            ),
           );
         },
       );

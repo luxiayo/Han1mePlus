@@ -3259,23 +3259,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{quality}p'**
   String downloadQualityValue(Object quality);
-}
-
-class _AppLocalizationsDelegate
-    extends LocalizationsDelegate<AppLocalizations> {
-  const _AppLocalizationsDelegate();
-
-  @override
-  Future<AppLocalizations> load(Locale locale) {
-    return SynchronousFuture<AppLocalizations>(lookupAppLocalizations(locale));
-  }
-
-  @override
-  bool isSupported(Locale locale) =>
-      <String>['en', 'zh'].contains(locale.languageCode);
-
-  @override
-  bool shouldReload(_AppLocalizationsDelegate old) => false;
 
   /// No description provided for @homeSectionLayout.
   ///
@@ -3336,6 +3319,23 @@ class _AppLocalizationsDelegate
   /// In en, this message translates to:
   /// **'Title'**
   String get playlistSortByName;
+}
+
+class _AppLocalizationsDelegate
+    extends LocalizationsDelegate<AppLocalizations> {
+  const _AppLocalizationsDelegate();
+
+  @override
+  Future<AppLocalizations> load(Locale locale) {
+    return SynchronousFuture<AppLocalizations>(lookupAppLocalizations(locale));
+  }
+
+  @override
+  bool isSupported(Locale locale) =>
+      <String>['en', 'zh'].contains(locale.languageCode);
+
+  @override
+  bool shouldReload(_AppLocalizationsDelegate old) => false;
 }
 
 AppLocalizations lookupAppLocalizations(Locale locale) {

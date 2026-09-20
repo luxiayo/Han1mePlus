@@ -1760,13 +1760,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get homeSectionLayout => 'Home Sections';
 
   @override
-  String get homeSectionLayoutDescription => 'Reorder or hide home page sections';
+  String get homeSectionLayoutDescription =>
+      'Reorder or hide home page sections';
 
   @override
-  String get homeSectionLayoutSummary => 'Drag the handle to reorder, use the switch to show or hide a section.';
+  String get homeSectionLayoutSummary =>
+      'Drag the handle to reorder, use the switch to show or hide a section.';
 
   @override
-  String get homeSectionLayoutUnavailable => 'Home sections are unavailable right now.';
+  String get homeSectionLayoutUnavailable =>
+      'Home sections are unavailable right now.';
 
   @override
   String get resetDefaults => 'Reset';

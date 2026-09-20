@@ -8,7 +8,6 @@ import '../../core/settings.dart';
 import '../../data/assets/search_option_catalog.dart';
 import '../../data/han1me_repository.dart';
 import '../../data/local/library_repository.dart';
-import '../../domain/models/library.dart';
 import '../../domain/models/search_query.dart';
 import '../../domain/models/video.dart';
 import '../account/account_controller.dart';
