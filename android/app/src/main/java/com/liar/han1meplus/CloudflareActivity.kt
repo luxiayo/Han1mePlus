@@ -20,27 +20,29 @@ class CloudflareActivity : Activity() {
 
     private val userAgent = "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36"
     private val handler = Handler(Looper.getMainLooper())
+    private var webView: WebView? = null
     private var completed = false
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val url = intent.getStringExtra(requestUrlKey) ?: return finish()
-        val webView = WebView(this)
-        setContentView(webView)
+        val newWebView = WebView(this)
+        webView = newWebView
+        setContentView(newWebView)
         val cookies = CookieManager.getInstance().apply {
             setAcceptCookie(true)
-            setAcceptThirdPartyCookies(webView, true)
+            setAcceptThirdPartyCookies(newWebView, true)
         }
         val initialClearance = clearanceCookie(cookies.getCookie(url).orEmpty())
-        webView.settings.apply {
+        newWebView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
             mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             javaScriptCanOpenWindowsAutomatically = true
             userAgentString = userAgent
         }
-        webView.webViewClient = object : WebViewClient() {}
+        newWebView.webViewClient = object : WebViewClient() {}
         handler.post(object : Runnable {
             override fun run() {
                 if (isFinishing || completed) return
@@ -57,7 +59,7 @@ class CloudflareActivity : Activity() {
                 handler.postDelayed(this, 500)
             }
         })
-        webView.loadUrl(url)
+        newWebView.loadUrl(url)
     }
 
     private fun clearanceCookie(cookies: String): String? = cookies
@@ -69,6 +71,8 @@ class CloudflareActivity : Activity() {
         handler.removeCallbacksAndMessages(null)
         onFinished?.invoke()
         onFinished = null
+        webView?.destroy()
+        webView = null
         super.onDestroy()
     }
 }

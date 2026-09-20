@@ -8,6 +8,7 @@ import 'package:m3e_core/m3e_core.dart';
 import '../../l10n/app_localizations.dart';
 import '../core/app_dio.dart';
 import '../core/platform_service.dart';
+import '../core/settings.dart';
 import '../core/video_player_shutdown.dart';
 import '../data/local/update_installer.dart';
 import '../data/remote/update_checker.dart';
@@ -29,6 +30,7 @@ class _AppStartupEffectsState extends ConsumerState<AppStartupEffects> {
   var _checkedForUpdate = false;
   var _appliedPrivacySettings = false;
   late final AppLifecycleListener _lifecycleListener;
+  ProviderSubscription<AsyncValue<AppSettings>>? _settingsSubscription;
 
   @override
   void initState() {
@@ -41,7 +43,7 @@ class _AppStartupEffectsState extends ConsumerState<AppStartupEffects> {
         }
       },
     );
-    ref.listenManual(settingsProvider, (previous, next) {
+    _settingsSubscription = ref.listenManual(settingsProvider, (previous, next) {
       final settings = next.valueOrNull;
       if (settings == null) return;
       if (settings.autoUpdate && !_checkedForUpdate) {
@@ -60,6 +62,7 @@ class _AppStartupEffectsState extends ConsumerState<AppStartupEffects> {
 
   @override
   void dispose() {
+    _settingsSubscription?.close();
     _lifecycleListener.dispose();
     super.dispose();
   }

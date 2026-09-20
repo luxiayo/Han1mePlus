@@ -50,7 +50,8 @@ class BackupService {
     final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: const ['zip'], withData: Platform.isIOS);
     if (result == null) return null;
     final picked = result.files.single;
-    final bytes = picked.bytes ?? await File(picked.path!).readAsBytes();
+    final bytes = picked.bytes ?? (picked.path != null ? await File(picked.path!).readAsBytes() : null);
+    if (bytes == null) return null;
     final archive = ZipDecoder().decodeBytes(bytes);
     Map<String, dynamic> json(String name) {
       final file = archive.files.where((item) => item.name == name).firstOrNull;

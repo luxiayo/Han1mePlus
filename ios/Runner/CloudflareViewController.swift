@@ -102,11 +102,29 @@ final class CloudflareViewController: UIViewController {
         }
     }
 
+    private static let challengeCondition = NSCondition()
+    private static var challengeActive = false
+
+    /// 并发请求同时触发挑战时只呈现一次验证页：后来者挂起等待，完成后直接返回重试（clearance cookie 已共享）。
     static func waitForChallenge(url: String) {
+        challengeCondition.lock()
+        if challengeActive {
+            challengeCondition.wait(until: Date().addingTimeInterval(300))
+            challengeCondition.unlock()
+            return
+        }
+        challengeActive = true
+        challengeCondition.unlock()
+
         let semaphore = DispatchSemaphore(value: 0)
         onFinished = { semaphore.signal() }
         present(for: url)
-        semaphore.wait()
+        _ = semaphore.wait(timeout: .now() + 300)
+
+        challengeCondition.lock()
+        challengeActive = false
+        challengeCondition.broadcast()
+        challengeCondition.unlock()
     }
 
     private static func clearanceCookie(from cookies: [HTTPCookie], url: String) -> String? {

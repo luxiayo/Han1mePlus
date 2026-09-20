@@ -6,9 +6,18 @@ class M3EThemeBridge extends StatelessWidget {
 
   final Widget child;
 
+  // Theme.of 返回缓存的同一 ThemeData 实例，按实例身份 memo，避免每次 build 重建整套 modern 主题。
+  static ThemeData? _lastSource;
+  static modern.ThemeData? _lastConverted;
+
   @override
   Widget build(BuildContext context) {
-    return modern.Theme(data: _toModern(Theme.of(context)), child: child);
+    final theme = Theme.of(context);
+    if (!identical(_lastSource, theme)) {
+      _lastSource = theme;
+      _lastConverted = _toModern(theme);
+    }
+    return modern.Theme(data: _lastConverted!, child: child);
   }
 
   modern.ThemeData _toModern(ThemeData theme) {

@@ -38,16 +38,51 @@ class VideoPlayerControls extends StatelessWidget {
         valueListenable: controller,
         builder: (context, value, _) {
           final l10n = AppLocalizations.of(context)!;
-          final progress = value.duration == Duration.zero ? 0.0 : value.position.inMilliseconds / value.duration.inMilliseconds;
-          if (!fullscreen) return SizedBox(height: 48, child: Row(children: [IconButton(color: Colors.white, tooltip: value.isPlaying ? l10n.pause : l10n.play, visualDensity: VisualDensity.compact, onPressed: () { value.isPlaying ? controller.pause() : controller.play(); onInteraction(); }, icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow)), Expanded(child: SliderTheme(data: const SliderThemeData(), child: Slider(value: progress.clamp(0, 1).toDouble(), onChanged: (next) { controller.seekTo(Duration(milliseconds: (next * value.duration.inMilliseconds).round())); onInteraction(); }))), SizedBox(width: 112, child: Text('${_formatDuration(value.position)}/${_formatDuration(value.duration)}', maxLines: 1, textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()]))), IconButton(color: Colors.white, tooltip: l10n.fullscreenPlayback, visualDensity: VisualDensity.compact, onPressed: onFullscreen, icon: const Icon(Icons.fullscreen))]));
+          if (!fullscreen) return SizedBox(height: 48, child: Row(children: [IconButton(color: Colors.white, tooltip: value.isPlaying ? l10n.pause : l10n.play, visualDensity: VisualDensity.compact, onPressed: () { value.isPlaying ? controller.pause() : controller.play(); onInteraction(); }, icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow)), Expanded(child: _Scrubber(value: value, controller: controller, onInteraction: onInteraction)), SizedBox(width: 112, child: Text('${_formatDuration(value.position)}/${_formatDuration(value.duration)}', maxLines: 1, textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()]))), IconButton(color: Colors.white, tooltip: l10n.fullscreenPlayback, visualDensity: VisualDensity.compact, onPressed: onFullscreen, icon: const Icon(Icons.fullscreen))]));
           return Column(mainAxisSize: MainAxisSize.min, children: [
-            Row(children: [SizedBox(width: 48, child: Text(_formatDuration(value.position), style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()]))), Expanded(child: SliderTheme(data: const SliderThemeData(), child: Slider(value: progress.clamp(0, 1).toDouble(), onChanged: (next) { controller.seekTo(Duration(milliseconds: (next * value.duration.inMilliseconds).round())); onInteraction(); }))), SizedBox(width: 48, child: Text(_formatDuration(value.duration), textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()])))]),
+            Row(children: [SizedBox(width: 48, child: Text(_formatDuration(value.position), style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()]))), Expanded(child: _Scrubber(value: value, controller: controller, onInteraction: onInteraction)), SizedBox(width: 48, child: Text(_formatDuration(value.duration), textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()])))]),
             SizedBox(height: 40, child: Row(children: [IconButton(color: Colors.white, tooltip: value.isPlaying ? l10n.pause : l10n.play, visualDensity: VisualDensity.compact, onPressed: () { value.isPlaying ? controller.pause() : controller.play(); onInteraction(); }, icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow)), if (onNext != null) IconButton(color: Colors.white, tooltip: l10n.autoPlayNext, visualDensity: VisualDensity.compact, onPressed: onNext, icon: const Icon(Icons.skip_next)), const Spacer(), _AspectMenu(), if (onEpisodeSelected != null && video.playlist.isNotEmpty) _EpisodeMenu(video: video, onSelected: onEpisodeSelected!), _Anime4KMenu(onSelected: onSuperResolutionSelected), if (video.sources.isNotEmpty) _QualityMenu(sources: video.sources, quality: quality, onSelected: onQualitySelected), _SpeedMenu(controller: controller, onInteraction: onInteraction), AndroidCastButton(sources: video.sources, quality: quality), IconButton(color: Colors.white, tooltip: l10n.exitFullscreen, visualDensity: VisualDensity.compact, onPressed: onFullscreen, icon: const Icon(Icons.fullscreen_exit))])),
           ]);
         },
       ),
     ),
   );
+}
+
+/// 进度条拖动只在本地更新滑块位置，松手才 seek——避免拖动期间每个 tick 触发 seek。
+class _Scrubber extends StatefulWidget {
+  const _Scrubber({required this.value, required this.controller, required this.onInteraction});
+
+  final VideoPlayerValue value;
+  final VideoPlayerController controller;
+  final VoidCallback onInteraction;
+
+  @override
+  State<_Scrubber> createState() => _ScrubberState();
+}
+
+class _ScrubberState extends State<_Scrubber> {
+  double? _drag;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = widget.value.duration == Duration.zero ? 0.0 : widget.value.position.inMilliseconds / widget.value.duration.inMilliseconds;
+    return SliderTheme(
+      data: const SliderThemeData(),
+      child: Slider(
+        value: (_drag ?? progress).clamp(0, 1).toDouble(),
+        onChanged: (next) {
+          widget.onInteraction();
+          setState(() => _drag = next);
+        },
+        onChangeEnd: (next) {
+          widget.controller.seekTo(Duration(milliseconds: (next * widget.value.duration.inMilliseconds).round()));
+          widget.onInteraction();
+          setState(() => _drag = null);
+        },
+      ),
+    );
+  }
 }
 
 class VideoPlayerSkipButton extends ConsumerWidget {

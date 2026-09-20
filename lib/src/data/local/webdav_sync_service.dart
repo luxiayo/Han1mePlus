@@ -15,8 +15,10 @@ class WebDavSyncService {
     final url = _fileUrl(settings.webDavUrl, 'han1meplus-watch-history.json');
     final options = _options(settings);
     WatchState remote = const WatchState();
+    String? etag;
     try {
       final response = await _dio.get<String>(url, options: options.copyWith(responseType: ResponseType.plain));
+      etag = response.headers.value('etag');
       final decoded = jsonDecode(response.data ?? '');
       if (decoded is Map<String, dynamic>) remote = WatchState.fromJson(decoded);
       if (decoded is Map) remote = WatchState.fromJson(Map<String, dynamic>.from(decoded));
@@ -26,7 +28,7 @@ class WebDavSyncService {
       // 404 等场景可能返回非 JSON 内容，按远端无数据处理。
     }
     final merged = _merge(local, remote);
-    await _dio.put<void>(url, data: jsonEncode(merged.toJson()), options: options);
+    await _dio.put<void>(url, data: jsonEncode(merged.toJson()), options: _putOptions(options, etag));
     return merged;
   }
 
@@ -34,8 +36,10 @@ class WebDavSyncService {
     final url = _fileUrl(settings.webDavUrl, 'han1meplus-favorites.json');
     final options = _options(settings);
     var remote = const <FollowingVideo>[];
+    String? etag;
     try {
       final response = await _dio.get<String>(url, options: options.copyWith(responseType: ResponseType.plain));
+      etag = response.headers.value('etag');
       final decoded = jsonDecode(response.data ?? '');
       if (decoded is List) remote = decoded.whereType<Map>().map((item) => FollowingVideo.fromJson(Map<String, dynamic>.from(item))).toList();
     } on DioException catch (error) {
@@ -49,9 +53,14 @@ class WebDavSyncService {
       if (existing == null || item.addedAt > existing.addedAt) merged[item.videoCode] = item;
     }
     final values = merged.values.toList()..sort((left, right) => right.addedAt.compareTo(left.addedAt));
-    await _dio.put<void>(url, data: jsonEncode(values.map((item) => item.toJson()).toList()), options: options);
+    await _dio.put<void>(url, data: jsonEncode(values.map((item) => item.toJson()).toList()), options: _putOptions(options, etag));
     return values;
   }
+
+  // 带 If-Match 条件写：两台设备同时同步时，后写者会收到 412 而不是静默覆盖对方数据。
+  Options _putOptions(Options options, String? etag) => etag == null
+      ? options
+      : Options(headers: {...(options.headers ?? const {}), 'If-Match': etag});
 
   Options _options(AppSettings settings) => Options(headers: {'Authorization': 'Basic ${base64Encode(utf8.encode('${settings.webDavUsername}:${settings.webDavPassword}'))}', 'Content-Type': 'application/json'});
 

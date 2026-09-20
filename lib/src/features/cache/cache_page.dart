@@ -236,7 +236,8 @@ class _TaskCard extends ConsumerWidget {
       DownloadStatus.failed => l10n.failed,
     };
     final localCover = task.localCoverPath;
-    final cover = localCover != null && File(localCover).existsSync() ? FileImage(File(localCover)) : null;
+    // 仅对已完成任务做存在性检查：下载中进度高频重建，同步 stat 会堆积在主线程。
+    final cover = localCover != null && (task.status == DownloadStatus.completed || File(localCover).existsSync()) ? FileImage(File(localCover)) : null;
     final infoStyle = Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

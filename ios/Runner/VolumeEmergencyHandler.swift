@@ -42,20 +42,32 @@ final class VolumeEmergencyHandler {
     func setVolume(_ value: Double) {
         DispatchQueue.main.async {
             let clamped = Float(min(max(value, 0), 1))
-            if self.volumeView == nil {
-                let view = MPVolumeView(frame: CGRect(x: -1000, y: -1000, width: 1, height: 1))
-                view.showsRouteButton = false
-                view.alpha = 0.01
-                self.topWindow()?.addSubview(view)
-                self.volumeView = view
-            }
+            self.ensureVolumeView()
             if let slider = self.volumeView?.subviews.compactMap({ $0 as? UISlider }).first {
                 slider.value = clamped
+                self.previousVolume = clamped
             } else {
-                MPVolumeView.setVolume(clamped)
+                // slider 子视图要等一帧布局后才生成，稍后重试一次。
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+                    guard let self, let slider = self.volumeView?.subviews.compactMap({ $0 as? UISlider }).first else { return }
+                    slider.value = clamped
+                    self.previousVolume = clamped
+                }
             }
-            self.previousVolume = clamped
         }
+    }
+
+    /// MPVolumeView 必须挂在当前 keyWindow 上其 slider 子视图才会生成；窗口变化后重新挂载。
+    private func ensureVolumeView() {
+        let window = topWindow()
+        if let view = volumeView, view.window === window { return }
+        volumeView?.removeFromSuperview()
+        guard let window else { return }
+        let view = MPVolumeView(frame: CGRect(x: -1000, y: -1000, width: 1, height: 1))
+        view.showsRouteButton = false
+        view.alpha = 0.01
+        window.addSubview(view)
+        volumeView = view
     }
 
     private func triggerEmergencyExit() {
@@ -72,14 +84,5 @@ final class VolumeEmergencyHandler {
             .compactMap { $0 as? UIWindowScene }
             .flatMap(\.windows)
             .first(where: \.isKeyWindow)
-    }
-}
-
-private extension MPVolumeView {
-    static func setVolume(_ volume: Float) {
-        let view = MPVolumeView(frame: .zero)
-        if let slider = view.subviews.compactMap({ $0 as? UISlider }).first {
-            slider.value = volume
-        }
     }
 }

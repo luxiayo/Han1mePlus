@@ -51,13 +51,13 @@ class MainActivity : FlutterActivity() {
 
         fun saveCookies(context: Context, cookies: String, url: String) {
             val preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE)
-            val host = requireNotNull(android.net.Uri.parse(url).host)
+            val host = android.net.Uri.parse(url).host ?: return
             val editor = preferences.edit()
             for (target in cookieHosts(host)) {
                 val key = "$cookieKey:$target"
                 editor.putString(key, mergeCookies(preferences.getString(key, "").orEmpty(), cookies))
             }
-            editor.commit()
+            editor.apply()
         }
 
         private fun mergeCookies(current: String, next: String): String = (current.split(';') + next.split(';'))
@@ -129,10 +129,9 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "clearCookies" -> {
-                    val url = call.argument<String>("url")
-                    if (url == null) result.error("invalid_url", "Missing URL", null)
+                    val host = call.argument<String>("url")?.let { android.net.Uri.parse(it).host }
+                    if (host == null) result.error("invalid_url", "Invalid URL", null)
                     else {
-                        val host = requireNotNull(android.net.Uri.parse(url).host)
                         val editor = getSharedPreferences(preferencesName, Context.MODE_PRIVATE).edit()
                         for (target in cookieHosts(host)) {
                             responseCookies.remove(target)
@@ -149,7 +148,9 @@ class MainActivity : FlutterActivity() {
                     result.success(cookieManager.getCookie(url).orEmpty())
                 }
                 "clearWebViewCookies" -> {
-                    CookieManager.getInstance().removeAllCookies { result.success(null) }
+                    // 立即回复：个别 WebView 内核的回调不触发时避免 Dart 侧永久挂起。
+                    CookieManager.getInstance().removeAllCookies(null)
+                    result.success(null)
                 }
                 "setNetworkSettings" -> {
                     networkSettings = NetworkSettings(
@@ -168,7 +169,7 @@ class MainActivity : FlutterActivity() {
                 "hasCookie" -> {
                     val url = call.argument<String>("url") ?: return@setMethodCallHandler result.error("invalid_url", "Missing URL", null)
                     val name = call.argument<String>("name") ?: return@setMethodCallHandler result.error("invalid_name", "Missing cookie name", null)
-                    val host = requireNotNull(android.net.Uri.parse(url).host)
+                    val host = android.net.Uri.parse(url).host ?: return@setMethodCallHandler result.error("invalid_url", "Invalid URL", null)
                     val cookies = getSharedPreferences(preferencesName, Context.MODE_PRIVATE).getString("$cookieKey:$host", "").orEmpty()
                     result.success(cookies.split(';').any { it.trim().substringBefore('=').equals(name, true) })
                 }
@@ -314,7 +315,8 @@ class MainActivity : FlutterActivity() {
         }
         parent.findFile(source.name)?.delete()
         val target = parent.createFile("application/octet-stream", source.name) ?: error("Unable to create ${source.name}")
-        contentResolver.openOutputStream(target.uri, "w")!!.use { output -> FileInputStream(source).use { input -> input.copyTo(output) } }
+        val output = contentResolver.openOutputStream(target.uri, "w") ?: error("Unable to open output stream for ${source.name}")
+        output.use { output -> FileInputStream(source).use { input -> input.copyTo(output) } }
     }
 
     private fun isHarmonyOs(): Boolean = listOf(
@@ -380,8 +382,12 @@ class MainActivity : FlutterActivity() {
                     if (!response.isSuccessful) throw IllegalStateException("Image request failed: HTTP ${response.code}")
                     val target = File(path)
                     target.parentFile?.mkdirs()
-                    response.body?.byteStream()?.use { input -> target.outputStream().use { output -> input.copyTo(output) } }
-                    if (!target.exists() || target.length() == 0L) throw IllegalStateException("Image response was empty")
+                    val partial = File(target.parentFile, "${target.name}.part")
+                    response.body?.byteStream()?.use { input -> partial.outputStream().use { output -> input.copyTo(output) } }
+                    if (!partial.exists() || partial.length() == 0L) throw IllegalStateException("Image response was empty")
+                    // 先写临时文件再改名，中断不会留下损坏的"已完成"文件。
+                    if (target.exists()) target.delete()
+                    if (!partial.renameTo(target)) throw IllegalStateException("Failed to finalize image file")
                 }
                 runOnUiThread { result.success(null) }
             } catch (error: Exception) {
@@ -506,25 +512,41 @@ private class ConfigurableDns(private val settings: () -> NetworkSettings) : Dns
 }
 
 private class CloudflareInterceptor(private val context: Context) : Interceptor {
+    companion object {
+        private val lock = Object()
+        private var activeLatch: CountDownLatch? = null
+    }
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val response = chain.proceed(request)
         if (response.code != 403 || response.header("cf-mitigated")?.equals("challenge", true) != true) return response
         response.close()
-        val latch = CountDownLatch(1)
-        CloudflareActivity.onFinished = { latch.countDown() }
-        try {
-            context.startActivity(
-                android.content.Intent(context, CloudflareActivity::class.java)
-                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    .putExtra(CloudflareActivity.requestUrlKey, request.url.toString()),
-            )
-            // 后台启动限制（Android 10+）可能让 Activity 根本不创建、onFinished 永不触发；
-            // 无限期 await 会挂死 OkHttp 线程，必须有界。
-            latch.await(120, TimeUnit.SECONDS)
-        } catch (_: Exception) {
-            CloudflareActivity.onFinished?.invoke()
+        // 并发请求同时触发挑战时只启动一次验证页：后来者共享同一个 latch，完成后一起重试。
+        val latch: CountDownLatch
+        synchronized(lock) {
+            latch = activeLatch ?: CountDownLatch(1).also { newLatch ->
+                activeLatch = newLatch
+                CloudflareActivity.onFinished = {
+                    synchronized(lock) {
+                        if (activeLatch === newLatch) activeLatch = null
+                        newLatch.countDown()
+                    }
+                }
+                try {
+                    context.startActivity(
+                        android.content.Intent(context, CloudflareActivity::class.java)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                            .putExtra(CloudflareActivity.requestUrlKey, request.url.toString()),
+                    )
+                } catch (_: Exception) {
+                    CloudflareActivity.onFinished?.invoke()
+                }
+            }
         }
+        // 后台启动限制（Android 10+）可能让 Activity 根本不创建、onFinished 永不触发；
+        // 无限期 await 会挂死 OkHttp 线程，必须有界。
+        latch.await(120, TimeUnit.SECONDS)
         return chain.proceed(request)
     }
 }
