@@ -22,10 +22,19 @@ class JsonStore {
 
   Future<void> write(String fileName, Map<String, dynamic> value) async {
     final file = await _file(fileName);
-    // 先写临时文件再改名：崩溃/断电不会留下半截 JSON 毁掉全部本地数据。
-    final temporary = File('${file.path}.tmp');
-    await temporary.writeAsString(jsonEncode(value), flush: true);
-    await temporary.rename(file.path);
+    // 先写临时文件再改名：崩溃/断电不会留下半截 JSON。临时文件名带唯一后缀——
+    // 并发写同一文件时会共用 tmp 路径，先完成者把文件 rename 走，后者 ENOENT。
+    final unique = DateTime.now().microsecondsSinceEpoch ^ identityHashCode(this);
+    final temporary = File('${file.path}.$unique.tmp');
+    try {
+      await temporary.writeAsString(jsonEncode(value), flush: true);
+      await temporary.rename(file.path);
+    } catch (_) {
+      try {
+        if (await temporary.exists()) await temporary.delete();
+      } catch (_) {}
+      rethrow;
+    }
   }
 
   Future<File> _file(String fileName) async {

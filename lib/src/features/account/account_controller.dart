@@ -7,7 +7,6 @@ import '../../data/han1me_repository.dart';
 import '../../data/local/account_store.dart';
 import '../../domain/models/account.dart';
 import '../settings/settings_controller.dart';
-import '../../data/local/library_repository.dart';
 
 final accountStoreProvider = Provider((_) => AccountStore());
 final accountProvider = AsyncNotifierProvider<AccountController, Account?>(AccountController.new);
@@ -148,12 +147,8 @@ class AccountController extends AsyncNotifier<Account?> {
       final next = account.copyWith(id: profile.id, name: profile.name, email: profile.email, avatarUrl: profile.avatarUrl, csrfToken: profile.csrfToken, joinedLabel: profile.joinedLabel, subscriberCount: profile.subscriberCount, videoCount: profile.videoCount);
       state = AsyncData(next);
       await ref.read(accountStoreProvider).write(settings.resolvedBaseUrl, next);
-      if (next.id != null) {
-        try {
-          final library = await ref.read(han1meRepositoryProvider).library(settings.resolvedBaseUrl, next.id!);
-          await ref.read(libraryProvider.notifier).cacheRemote(library);
-        } catch (_) {}
-      }
+      // 收藏库不再随账号刷新全量拉取：收藏页自身会拉取并写入本地缓存，
+      // 这里重复拉取既多打一倍请求（易触发 Cloudflare 限流），又会与页面并发写 following_store。
       ref.invalidate(accountsProvider);
       return next;
     } catch (_) {
