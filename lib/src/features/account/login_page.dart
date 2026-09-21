@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -32,6 +33,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         return;
       }
       await ref.read(accountProvider.notifier).saveCookie(cookie);
+      if (!mounted) return;
+      // 录入 cookie 后先探测一次：原生请求被 Cloudflare 拦截（webview 里没拿到 cf_clearance）
+      // 时直接带去验证页，而不是回到内容页后才报 403。
+      try {
+        await ref.read(han1meRepositoryProvider).home(settings.resolvedBaseUrl);
+      } on CloudflareChallengeException {
+        if (!mounted) return;
+        await context.push<bool>('/cloudflare', extra: settings.resolvedBaseUrl);
+      } on DioException catch (error) {
+        if (error.response?.statusCode == 403 && mounted) {
+          await context.push<bool>('/cloudflare', extra: settings.resolvedBaseUrl);
+        }
+      }
       if (mounted) Navigator.pop(context);
     } catch (error) {
       if (!mounted) return;

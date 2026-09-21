@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:m3e_core/m3e_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import '../../data/local/library_repository.dart';
 import '../../data/local/watch_repository.dart';
 import '../../core/app_shell.dart';
 import '../../data/han1me_repository.dart';
+import '../../data/remote/han1me_api.dart';
 import '../../domain/models/library.dart';
 import '../../domain/models/search_query.dart';
 import '../../domain/models/video.dart';
@@ -99,7 +101,7 @@ class _RemoteLibrary extends ConsumerWidget {
         appBar: AppBar(leading: permanentNavigationDrawer(context) ? null : IconButton(onPressed: openAppDrawer, icon: const Icon(Icons.menu)), title: Text(_tabTitle(l10n, initialTab))),
         body: ref.watch(remoteLibraryProvider).when(
           loading: () => const Center(child: M3EContainedLoadingIndicator()),
-          error: (error, stackTrace) => Center(child: FilledButton(onPressed: () => ref.invalidate(remoteLibraryProvider), child: Text(l10n.reload))),
+          error: (error, stackTrace) => _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
           data: (library) => _remoteTabContent(context, library, initialTab, account?.csrfToken),
         ),
       );
@@ -110,11 +112,11 @@ class _RemoteLibrary extends ConsumerWidget {
       child: Builder(
         builder: (context) => Scaffold(
           appBar: AppBar(leading: ref.watch(settingsProvider).valueOrNull?.useNavigationDrawer ?? false ? (permanentNavigationDrawer(context) ? null : IconButton(onPressed: openAppDrawer, icon: const Icon(Icons.menu))) : null, title: Text(l10n.myLibrary), bottom: TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: _tabs(l10n))),
-          body: ref.watch(remoteLibraryProvider).when(
-                loading: () => const Center(child: M3EContainedLoadingIndicator()),
-                error: (error, stackTrace) => Center(child: FilledButton(onPressed: () => ref.invalidate(remoteLibraryProvider), child: Text(l10n.reload))),
-                data: (library) => TabBarView(children: [for (var index = 0; index < 5; index++) _remoteTabContent(context, library, index, account?.csrfToken)]),
-              ),
+              body: ref.watch(remoteLibraryProvider).when(
+                    loading: () => const Center(child: M3EContainedLoadingIndicator()),
+                    error: (error, stackTrace) => _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
+                    data: (library) => TabBarView(children: [for (var index = 0; index < 5; index++) _remoteTabContent(context, library, index, account?.csrfToken)]),
+                  ),
         ),
       ),
     );
@@ -181,6 +183,40 @@ String _tabTitle(AppLocalizations l10n, int index) => switch (index) {
   3 => l10n.subscriptions,
   _ => l10n.watchHistory,
 };
+
+class _RemoteErrorView extends ConsumerWidget {
+  const _RemoteErrorView({required this.error, required this.onRetry});
+
+  final Object error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
+    final challenge = error is CloudflareChallengeException ? error as CloudflareChallengeException : null;
+    final dio = error is DioException ? error as DioException : null;
+    final cloudflareBlocked = challenge != null || dio?.response?.statusCode == 403;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 24), child: Text('$error', textAlign: TextAlign.center)),
+          const SizedBox(height: 12),
+          FilledButton(onPressed: onRetry, child: Text(l10n.reload)),
+          if (cloudflareBlocked) ...[
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () async {
+                if (await context.push<bool>('/cloudflare', extra: challenge?.url) == true) onRetry();
+              },
+              child: Text(l10n.cloudflareVerification),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
 
 mixin _VideoSelectionState<T extends StatefulWidget> on State<T> {
   final _selected = <String>{};

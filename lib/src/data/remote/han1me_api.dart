@@ -551,12 +551,19 @@ class Han1meApi {
 
   int _pageCount(dom.Document document) => document.querySelectorAll('ul.pagination a.page-link[href]').map((link) => int.tryParse(Uri.tryParse(link.attributes['href'] ?? '')?.queryParameters['page'] ?? '') ?? 1).fold(1, (count, page) => page > count ? page : count);
 
-  static bool isCloudflareResponse(int? statusCode, Map<String, List<String>> headers, String body) => statusCode == 403 &&
-      ((headers['cf-mitigated'] ?? headers['CF-Mitigated'] ?? const <String>[]).any((value) => value.toLowerCase() == 'challenge') ||
-          body.contains('cf-chl-') ||
-          body.contains('challenge-form') ||
-          body.contains('Just a moment') ||
-          body.contains('Attention Required'));
+  static bool isCloudflareResponse(int? statusCode, Map<String, List<String>> headers, String body) {
+    if (statusCode != 403) return false;
+    if ((headers['cf-mitigated'] ?? headers['CF-Mitigated'] ?? const <String>[]).any((value) => value.toLowerCase() == 'challenge')) return true;
+    // 覆盖新旧两代拦截页文案：挑战页（Just a moment）、旧版 block（Attention Required）、
+    // 新版 block（Sorry, you have been blocked / You are unable to access）。
+    final lower = body.toLowerCase();
+    return lower.contains('cf-chl-') ||
+        lower.contains('challenge-form') ||
+        lower.contains('just a moment') ||
+        lower.contains('attention required') ||
+        lower.contains('sorry, you have been blocked') ||
+        lower.contains('you are unable to access');
+  }
 
   VideoCard _card(dom.Element element) {
     final dataHref = element.attributes['data-href'] ?? '';
