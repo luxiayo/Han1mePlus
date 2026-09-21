@@ -466,11 +466,23 @@ class Han1meApi {
   Future<void> reportComment(String baseUrl, String token, String userId, Comment comment, String reason) => _form('$baseUrl/user/$userId/report', {'redirect-url': '', 'reportable-id': comment.reportableId ?? comment.foreignId ?? '', 'reportable-type': comment.reportableType ?? (comment.id.isEmpty ? 'reply' : 'comment'), 'reason': reason}, token);
 
   Future<dom.Document> _document(String url, {String? referer}) async {
-    final response = await _http.get(url, headers: referer == null ? null : {'Referer': referer});
+    // 对齐浏览器请求头形态：站点 WAF 会对 /user/ 等敏感路径上"非浏览器形态"的请求直接 403。
+    final headers = {
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'zh-CN,zh;q=0.9',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'same-origin',
+      if (referer != null) 'Referer': referer,
+    };
+    final response = await _http.get(url, headers: headers);
     if (isCloudflareResponse(response.statusCode, response.headers, response.body)) throw CloudflareChallengeException(url);
     if (response.statusCode >= 400) {
-      // message 带 URL、response 带状态码：页面错误态能显示失败的具体请求，403 时验证按钮才能判定。
-      throw DioException(requestOptions: RequestOptions(path: url), message: 'Request failed: HTTP ${response.statusCode} ($url)', response: Response(statusCode: response.statusCode, requestOptions: RequestOptions(path: url)));
+      // message 带 URL 与响应体摘要：页面错误态能直接看出是 CF 拦截还是站点拒绝。
+      final snippet = response.body.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      final detail = snippet.isEmpty ? '' : ' ${snippet.length > 160 ? snippet.substring(0, 160) : snippet}';
+      throw DioException(requestOptions: RequestOptions(path: url), message: 'Request failed: HTTP ${response.statusCode} ($url)$detail', response: Response(statusCode: response.statusCode, requestOptions: RequestOptions(path: url)));
     }
     final requestedOrigin = Uri.parse(url).origin;
     final resolvedOrigin = Uri.tryParse(response.url)?.origin;
