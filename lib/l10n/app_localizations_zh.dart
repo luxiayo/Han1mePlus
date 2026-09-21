@@ -1402,6 +1402,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appLocked => '应用已锁定';
 
   @override
+  String get appLockAuthFailed => '验证未通过，点击重试';
+
+  @override
   String get unlocking => '解锁中…';
 
   @override
@@ -3131,6 +3134,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get appLocked => '應用程式已鎖定';
+
+  @override
+  String get appLockAuthFailed => '驗證未通過，點擊重試';
 
   @override
   String get unlocking => '解鎖中…';

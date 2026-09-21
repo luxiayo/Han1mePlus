@@ -82,14 +82,23 @@ class VideoTitleFilterPage extends ConsumerWidget {
   const VideoTitleFilterPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => _StringFilterPage(title: AppLocalizations.of(context)!.videoTitleKeywordFilter, label: AppLocalizations.of(context)!.keyword, values: ref.watch(settingsProvider).valueOrNull?.blockedVideoTitleKeywords ?? const [], onChanged: (values) => ref.read(settingsProvider.notifier).saveChanges((current) => current.copyWith(blockedVideoTitleKeywords: values)));
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 设置未加载完成时不进入编辑器：以空列表为基线保存会清空既有配置。
+    final settings = ref.watch(settingsProvider).valueOrNull;
+    if (settings == null) return const Scaffold(body: Center(child: M3EContainedLoadingIndicator()));
+    return _StringFilterPage(title: AppLocalizations.of(context)!.videoTitleKeywordFilter, label: AppLocalizations.of(context)!.keyword, values: settings.blockedVideoTitleKeywords, onChanged: (values) => ref.read(settingsProvider.notifier).saveChanges((current) => current.copyWith(blockedVideoTitleKeywords: values)));
+  }
 }
 
 class AuthorFilterPage extends ConsumerWidget {
   const AuthorFilterPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => _StringFilterPage(title: AppLocalizations.of(context)!.authorFilter, label: AppLocalizations.of(context)!.author, values: ref.watch(settingsProvider).valueOrNull?.blockedAuthors ?? const [], onChanged: (values) => ref.read(settingsProvider.notifier).saveChanges((current) => current.copyWith(blockedAuthors: values)));
+  Widget build(BuildContext context, WidgetRef ref) {
+    final settings = ref.watch(settingsProvider).valueOrNull;
+    if (settings == null) return const Scaffold(body: Center(child: M3EContainedLoadingIndicator()));
+    return _StringFilterPage(title: AppLocalizations.of(context)!.authorFilter, label: AppLocalizations.of(context)!.author, values: settings.blockedAuthors, onChanged: (values) => ref.read(settingsProvider.notifier).saveChanges((current) => current.copyWith(blockedAuthors: values)));
+  }
 }
 
 class _StringFilterPage extends StatefulWidget {

@@ -138,16 +138,25 @@ class CommentCard extends ConsumerWidget {
   Future<void> _vote(WidgetRef ref, bool positive) async {
     if (token == null) return;
     final settings = await ref.read(settingsProvider.future);
-    await ref.read(han1meRepositoryProvider).voteComment(settings.resolvedBaseUrl, token!, comment, positive);
-    onChanged();
+    final context = ref.context;
+    try {
+      await ref.read(han1meRepositoryProvider).voteComment(settings.resolvedBaseUrl, token!, comment, positive);
+      onChanged();
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    }
   }
 
   Future<void> _reply(BuildContext context, WidgetRef ref) async {
     final text = await showDialog<String>(context: context, builder: (_) => CommentEditor(title: AppLocalizations.of(context)!.replyComment));
     if (text == null || text.isEmpty || token == null) return;
     final settings = await ref.read(settingsProvider.future);
-    await ref.read(han1meRepositoryProvider).replyComment(settings.resolvedBaseUrl, token!, comment.id, text);
-    onChanged();
+    try {
+      await ref.read(han1meRepositoryProvider).replyComment(settings.resolvedBaseUrl, token!, comment.id, text);
+      onChanged();
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    }
   }
 
   Future<void> _showReplies(BuildContext context, WidgetRef ref) async {
@@ -167,8 +176,12 @@ class CommentCard extends ConsumerWidget {
     final reason = await showDialog<String>(context: context, builder: (context) => SimpleDialog(title: Text(AppLocalizations.of(context)!.report), children: reasons.map((item) => SimpleDialogOption(onPressed: () => Navigator.pop(context, item), child: Text(item))).toList()));
     if (reason == null) return;
     final settings = await ref.read(settingsProvider.future);
-    await ref.read(han1meRepositoryProvider).reportComment(settings.resolvedBaseUrl, token!, account!.id!, comment, reason);
-    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.reportSubmitted)));
+    try {
+      await ref.read(han1meRepositoryProvider).reportComment(settings.resolvedBaseUrl, token!, account!.id!, comment, reason);
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.reportSubmitted)));
+    } catch (error) {
+      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    }
   }
 
   Future<List<String>> _reportReasons(BuildContext context) async {

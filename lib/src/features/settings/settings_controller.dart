@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/media_player_initializer.dart';
@@ -13,9 +15,11 @@ final settingsProvider = AsyncNotifierProvider<SettingsController, AppSettings>(
 class SettingsController extends AsyncNotifier<AppSettings> {
   SettingsController([this._initial]);
   final AppSettings? _initial;
+  Timer? _persistDebounce;
 
   @override
   Future<AppSettings> build() async {
+    ref.onDispose(() => _persistDebounce?.cancel());
     final settings = _initial ?? await ref.read(settingsStoreProvider).load();
     await _syncNetworkSettings(settings);
     return settings;
@@ -30,7 +34,8 @@ class SettingsController extends AsyncNotifier<AppSettings> {
         ? requested.copyWith(playerEngine: PlayerEngine.libMpv)
         : requested;
     state = AsyncData(next);
-    await ref.read(settingsStoreProvider).save(next);
+    // 滑块拖动会高频触发保存：状态立即生效，落盘防抖 500ms 合并写入。
+    _schedulePersist(next);
     MediaPlayerInitializer.update(next);
     if (current.playerEngine != next.playerEngine) MediaPlayerInitializer.apply(next);
     if (_networkSettingsChanged(current, next)) await _syncNetworkSettings(next);
@@ -45,6 +50,13 @@ class SettingsController extends AsyncNotifier<AppSettings> {
     MediaPlayerInitializer.update(next);
     MediaPlayerInitializer.apply(next);
     await _syncNetworkSettings(next);
+  }
+
+  void _schedulePersist(AppSettings settings) {
+    _persistDebounce?.cancel();
+    _persistDebounce = Timer(const Duration(milliseconds: 500), () {
+      unawaited(ref.read(settingsStoreProvider).save(settings));
+    });
   }
 
   bool _networkSettingsChanged(AppSettings current, AppSettings next) =>

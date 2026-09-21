@@ -45,10 +45,19 @@ class AboutPage extends ConsumerWidget {
       );
   }
 
-   Future<void> _checkUpdate(BuildContext context, bool useUpdateMirror) async {
+  Future<void> _checkUpdate(BuildContext context, bool useUpdateMirror) async {
     final l10n = AppLocalizations.of(context)!;
-    final update = await UpdateChecker(createDio()).check();
+    final UpdateInfo? fetched;
+    try {
+      fetched = await UpdateChecker(createDio()).check();
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+      return;
+    }
     if (!context.mounted) return;
+    // try 块内赋值的变量不参与类型提升，经局部变量中转后可安全收窄。
+    final update = fetched;
     if (update == null) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.latestVersion)));
       return;
@@ -74,11 +83,15 @@ class AboutPage extends ConsumerWidget {
                 ? null
                 : () async {
                     Navigator.pop(dialogContext);
-                    await UpdateInstaller(createDio()).downloadAndInstall(
-                      update.downloadUrl,
-                      (_) {},
-                      useMirror: useUpdateMirror,
-                    );
+                    try {
+                      await UpdateInstaller(createDio()).downloadAndInstall(
+                        update.downloadUrl,
+                        (_) {},
+                        useMirror: useUpdateMirror,
+                      );
+                    } catch (error) {
+                      if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+                    }
                   },
             child: Text(l10n.updateNow),
           ),

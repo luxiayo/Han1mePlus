@@ -24,6 +24,7 @@ class CloudflarePage extends ConsumerStatefulWidget {
 class _CloudflarePageState extends ConsumerState<CloudflarePage> {
   Timer? _verificationTimer;
   String? _initialClearance;
+  String? _error;
   var _saving = false;
 
   Future<void> _completeVerification(String requestUrl) async {
@@ -37,7 +38,8 @@ class _CloudflarePageState extends ConsumerState<CloudflarePage> {
       if (!mounted) return;
       _verificationTimer?.cancel();
       Navigator.pop(context, true);
-    } catch (_) {
+    } catch (error) {
+      if (mounted) setState(() => _error = '$error');
     } finally {
       _saving = false;
     }
@@ -86,6 +88,16 @@ class _CloudflarePageState extends ConsumerState<CloudflarePage> {
             _startVerification(initialUrl);
           },
         ),
+        if (_error != null)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 16,
+            child: MaterialBanner(
+              content: Text(_error!),
+              actions: [TextButton(onPressed: () => setState(() => _error = null), child: Text(AppLocalizations.of(context)!.close))],
+            ),
+          ),
       ]),
     );
   }

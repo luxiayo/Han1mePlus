@@ -717,6 +717,7 @@
   "addAccount": "新增帳號",
   "defaultCategory": "預設",
   "appLocked": "應用程式已鎖定",
+  "appLockAuthFailed": "驗證未通過，點擊重試",
   "unlocking": "解鎖中…",
   "unlock": "解鎖",
   "homeCategoryTabs": "首頁使用 Tab 分類",

@@ -89,7 +89,11 @@ class _WebDavConfigurationPageState extends ConsumerState<WebDavConfigurationPag
   }
 
   Future<void> _save() async {
-    await ref.read(settingsProvider.notifier).saveChanges((current) => current.copyWith(webDavUrl: _url.text.trim(), webDavUsername: _username.text.trim(), webDavPassword: _password.text));
-    if (mounted) Navigator.pop(context);
+    try {
+      await ref.read(settingsProvider.notifier).saveChanges((current) => current.copyWith(webDavUrl: _url.text.trim(), webDavUsername: _username.text.trim(), webDavPassword: _password.text));
+      if (mounted) Navigator.pop(context);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    }
   }
 }

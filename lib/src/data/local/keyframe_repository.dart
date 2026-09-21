@@ -32,6 +32,14 @@ class KeyframeVideo {
 
 class KeyframesController extends AutoDisposeFamilyAsyncNotifier<List<int>, String> {
   final _store = JsonStore();
+  // 静态队列跨 family 实例串行化：读-改-写必须原子，否则并发添加/删除互相覆盖。
+  static Future<void> _writeQueue = Future<void>.value();
+
+  Future<T> _enqueue<T>(Future<T> Function() operation) {
+    final next = _writeQueue.then((_) => operation());
+    _writeQueue = next.then<void>((_) {}, onError: (_) {});
+    return next;
+  }
 
   @override
   Future<List<int>> build(String videoId) async {
@@ -39,30 +47,30 @@ class KeyframesController extends AutoDisposeFamilyAsyncNotifier<List<int>, Stri
     return local;
   }
 
-  Future<void> setTitle(String title) async {
+  Future<void> setTitle(String title) => _enqueue(() async {
     final json = await _store.read('keyframes.json');
     final positions = _positions(json, arg);
     if (positions.isEmpty) return;
     await _write(json, positions, title: title);
-  }
+  });
 
-  Future<bool> add(int positionMs, {String? title}) async {
+  Future<bool> add(int positionMs, {String? title}) => _enqueue(() async {
     final json = await _store.read('keyframes.json');
     final current = _positions(json, arg);
     if (current.any((value) => (value - positionMs).abs() < 10000)) return false;
     await _write(json, [...current, positionMs]..sort(), title: title);
     return true;
-  }
+  });
 
-  Future<bool> updatePosition(int oldPositionMs, int newPositionMs) async {
+  Future<bool> updatePosition(int oldPositionMs, int newPositionMs) => _enqueue(() async {
     final json = await _store.read('keyframes.json');
     final current = _positions(json, arg);
     if (newPositionMs < 0 || current.where((item) => item != oldPositionMs).any((item) => (item - newPositionMs).abs() < 10000)) return false;
     await _write(json, [...current.where((item) => item != oldPositionMs), newPositionMs]..sort());
     return true;
-  }
+  });
 
-  Future<void> remove(int positionMs) async {
+  Future<void> remove(int positionMs) => _enqueue(() async {
     final json = await _store.read('keyframes.json');
     final next = _positions(json, arg).where((item) => item != positionMs).toList();
     if (next.isEmpty) {
@@ -73,15 +81,15 @@ class KeyframesController extends AutoDisposeFamilyAsyncNotifier<List<int>, Stri
       return;
     }
     await _write(json, next);
-  }
+  });
 
-  Future<void> deleteVideo() async {
+  Future<void> deleteVideo() => _enqueue(() async {
     final json = await _store.read('keyframes.json');
     json.remove(arg);
     await _store.write('keyframes.json', json);
     state = const AsyncData([]);
     ref.invalidate(keyframeVideosProvider);
-  }
+  });
 
   List<int> _positions(Map<String, dynamic> json, String id) {
     final value = json[id];

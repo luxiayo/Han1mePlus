@@ -17,8 +17,14 @@ Future<void> writeSelectedVideoComment(BuildContext context, WidgetRef ref, Stri
   final page = ref.read(commentsProvider(id)).valueOrNull;
   if (text == null || text.isEmpty || page?.csrfToken == null || page?.currentUserId == null) return;
   final settings = await ref.read(settingsProvider.future);
-  await ref.read(han1meRepositoryProvider).postComment(settings.resolvedBaseUrl, page!.csrfToken!, page.currentUserId!, 'video', id, text);
-  ref.invalidate(commentsProvider(id));
+  if (!context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await ref.read(han1meRepositoryProvider).postComment(settings.resolvedBaseUrl, page!.csrfToken!, page.currentUserId!, 'video', id, text);
+    ref.invalidate(commentsProvider(id));
+  } catch (error) {
+    messenger.showSnackBar(SnackBar(content: Text('$error')));
+  }
 }
 
 class VideoCommentsView extends ConsumerStatefulWidget {

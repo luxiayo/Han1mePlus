@@ -1445,6 +1445,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appLocked => 'App Locked';
 
   @override
+  String get appLockAuthFailed => 'Verification failed. Tap to retry.';
+
+  @override
   String get unlocking => 'Unlocking…';
 
   @override

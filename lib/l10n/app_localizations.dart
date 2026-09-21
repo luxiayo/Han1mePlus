@@ -2684,6 +2684,12 @@ abstract class AppLocalizations {
   /// **'App Locked'**
   String get appLocked;
 
+  /// No description provided for @appLockAuthFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification failed. Tap to retry.'**
+  String get appLockAuthFailed;
+
   /// No description provided for @unlocking.
   ///
   /// In en, this message translates to:

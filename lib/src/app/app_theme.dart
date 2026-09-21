@@ -36,6 +36,7 @@ extension AppThemeColorSeed on AppThemeColor {
         AppThemeColor.indigo => const Color(0xff4a5f9e),
         AppThemeColor.pink => const Color(0xff9c3c66),
         AppThemeColor.purple => const Color(0xff6d3f90),
-        AppThemeColor.custom => Color(int.parse('ff$customColor', radix: 16)),
+        // 容错解析：备份导入可能带非法值，根 build 抛异常会导致整个 App 白屏。
+        AppThemeColor.custom => Color(int.tryParse('ff$customColor', radix: 16) ?? 0xff6d3f90),
       };
 }

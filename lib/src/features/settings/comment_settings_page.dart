@@ -30,7 +30,12 @@ class CommentUserFilterPage extends ConsumerWidget {
   const CommentUserFilterPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => _CommentFilterEditor(title: AppLocalizations.of(context)!.commentUserFilter, label: AppLocalizations.of(context)!.username, values: ref.watch(settingsProvider).valueOrNull?.blockedCommentUsers ?? const [], onChanged: (values) => ref.read(settingsProvider.notifier).saveChanges((current) => current.copyWith(blockedCommentUsers: values)));
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 设置未加载完成时不进入编辑器：以空列表为基线保存会清空既有配置。
+    final settings = ref.watch(settingsProvider).valueOrNull;
+    if (settings == null) return const Scaffold(body: Center(child: M3EContainedLoadingIndicator()));
+    return _CommentFilterEditor(title: AppLocalizations.of(context)!.commentUserFilter, label: AppLocalizations.of(context)!.username, values: settings.blockedCommentUsers, onChanged: (values) => ref.read(settingsProvider.notifier).saveChanges((current) => current.copyWith(blockedCommentUsers: values)));
+  }
 }
 
 class _CommentFilterEditor extends StatefulWidget {

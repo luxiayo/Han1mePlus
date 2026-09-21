@@ -717,6 +717,7 @@
   "addAccount": "Add Account",
   "defaultCategory": "Default",
   "appLocked": "App Locked",
+  "appLockAuthFailed": "Verification failed. Tap to retry.",
   "unlocking": "Unlocking…",
   "unlock": "Unlock",
   "homeCategoryTabs": "Use Home Category Tabs",

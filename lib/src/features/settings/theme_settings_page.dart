@@ -253,7 +253,7 @@ class _CustomPaletteButton extends StatelessWidget {
   Widget build(BuildContext context) => _MiniPalette(selected: selected, colors: [color, color.withValues(alpha: .55), color.withValues(alpha: .75)], onTap: onTap);
 }
 
-Color _colorFromHex(String value) => Color(int.parse('ff$value', radix: 16));
+Color _colorFromHex(String value) => Color(int.tryParse('ff$value', radix: 16) ?? 0xff6d3f90);
 
 class _CustomColorDialog extends StatefulWidget {
   const _CustomColorDialog({required this.initialColor});

@@ -7,7 +7,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../core/platform_paths.dart';
 import '../../domain/models/comic.dart';
-import '../remote/han1me_http_client.dart';
+import '../han1me_repository.dart';
 import 'json_store.dart';
 
 class ComicReaderState {
@@ -70,8 +70,19 @@ final comicCacheProvider = AsyncNotifierProvider<ComicCacheController, List<Comi
 class ComicCacheController extends AsyncNotifier<List<ComicCacheEntry>> {
   final _store = JsonStore();
   static const _categoriesKey = 'comic_cache_categories.json';
+  // 缓存/删除/解压串行排队：并发操作同一漫画会互相删除工作目录、损坏归档。
+  Future<void> _opQueue = Future<void>.value();
+
+  Future<T> _enqueue<T>(Future<T> Function() operation) {
+    final next = _opQueue.then((_) => operation());
+    _opQueue = next.then<void>((_) {}, onError: (_) {});
+    return next;
+  }
+
   @override Future<List<ComicCacheEntry>> build() async => ((await _store.read('comic_cache.json'))['items'] as List? ?? const []).whereType<Map>().map((item) => ComicCacheEntry.fromJson(Map<String, dynamic>.from(item))).toList();
-  Future<void> cache(ComicDetail detail, {String category = defaultComicCategory}) async {
+  Future<void> cache(ComicDetail detail, {String category = defaultComicCategory}) => _enqueue(() => _cache(detail, category: category));
+
+  Future<void> _cache(ComicDetail detail, {required String category}) async {
     final storage = await appStorageDirectory();
     final rootDirectory = Directory(path.join(storage.path, 'Comic'));
     await rootDirectory.create(recursive: true);
@@ -106,9 +117,10 @@ class ComicCacheController extends AsyncNotifier<List<ComicCacheEntry>> {
 
   Future<void> _downloadImage(String url, File output) async {
     Object? lastError;
+    final client = ref.read(han1meHttpClientProvider);
     for (var attempt = 0; attempt < 3; attempt++) {
       try {
-        await Han1meHttpClient().download(url, output.path);
+        await client.download(url, output.path);
         if (await output.length() > 0) return;
       } catch (error) {
         lastError = error;
@@ -141,23 +153,28 @@ class ComicCacheController extends AsyncNotifier<List<ComicCacheEntry>> {
     final currentCategories = await categories();
     await _store.write(_categoriesKey, {'items': currentCategories.where((item) => item != defaultComicCategory && item != category).toList()});
   }
-  Future<void> delete(ComicCacheEntry entry) async {
+  Future<void> delete(ComicCacheEntry entry) => _enqueue(() async {
     final archive = File(entry.archivePath);
     if (await archive.exists()) await archive.delete();
     final next = (state.value ?? const []).where((item) => item.id != entry.id).toList();
     state = AsyncData(next);
     await _store.write('comic_cache.json', {'items': next.map((item) => item.toJson()).toList()});
-  }
+  });
 
-  Future<List<String>> extract(ComicCacheEntry entry) async {
+  Future<List<String>> extract(ComicCacheEntry entry) => _enqueue(() async {
+    if (entry.pageCount <= 0) return const <String>[];
     final root = await getTemporaryDirectory();
     final directory = Directory(path.join(root.path, 'comic_reader', entry.id));
     if (!await directory.exists() || (await directory.list().length) < entry.pageCount) {
       if (await directory.exists()) await directory.delete(recursive: true);
       await directory.create(recursive: true);
-      final archive = ZipDecoder().decodeBytes(await File(entry.archivePath).readAsBytes());
-      extractArchiveToDisk(archive, directory.path);
+      // 解码走 InputFileStream：按条目惰性解压，避免整个压缩包驻留内存。
+      final archive = ZipDecoder().decodeStream(InputFileStream(entry.archivePath));
+      for (final file in archive.files) {
+        if (!file.isFile) continue;
+        await File(path.join(directory.path, file.name)).writeAsBytes(file.content as List<int>);
+      }
     }
     return List.generate(entry.pageCount, (index) => path.join(directory.path, '${index + 1}.image'));
-  }
+  });
 }

@@ -336,7 +336,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
     setState(() {
       _mode = state.mode;
       _background = _backgroundFromName(state.background);
-      _page = (state.progress[widget.comic.id] ?? 0).clamp(0, widget.comic.pageCount - 1);
+      _page = (state.progress[widget.comic.id] ?? 0).clamp(0, widget.comic.pageCount <= 0 ? 0 : widget.comic.pageCount - 1);
       _ready = true;
     });
     _prefetch();
@@ -419,6 +419,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   void _change(int delta) {
+    if (widget.comic.pageCount <= 0) return;
     final next = (_page + delta).clamp(0, widget.comic.pageCount - 1);
     if (next == _page) return;
     setState(() => _page = next);
@@ -483,6 +484,7 @@ class _ComicReaderPageState extends State<ComicReaderPage> {
   }
 
   void _jump(int page) {
+    if (widget.comic.pageCount <= 0) return;
     final next = (page - 1).clamp(0, widget.comic.pageCount - 1);
     _change(next - _page);
   }

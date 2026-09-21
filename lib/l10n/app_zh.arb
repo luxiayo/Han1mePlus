@@ -717,6 +717,7 @@
   "addAccount": "添加账号",
   "defaultCategory": "默认",
   "appLocked": "应用已锁定",
+  "appLockAuthFailed": "验证未通过，点击重试",
   "unlocking": "解锁中…",
   "unlock": "解锁",
   "homeCategoryTabs": "首页使用 Tab 栏分类",
