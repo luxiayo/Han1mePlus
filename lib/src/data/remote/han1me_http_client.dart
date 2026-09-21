@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as webview;
 
 import '../../core/desktop_platform.dart';
+import 'windows_connection_factory.dart';
 import 'windows_http_overrides.dart';
 
 class Han1meHttpResponse {
@@ -26,6 +27,9 @@ class Han1meHttpClient {
   HttpClient? _sharedDesktopClient;
 
   static const userAgent = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Mobile Safari/537.36';
+
+  /// 是否支持按请求强制优选 IP 直连（仅桌面端）。Cloudflare 1034 换线路重试依赖它。
+  bool get canForceBuiltInHosts => _isDesktop;
 
   Future<void> saveCookies(String cookies, {String? url}) async {
     if (!_isDesktop) {
@@ -85,7 +89,7 @@ class Han1meHttpClient {
 
   Future<bool> hasCookie(String url, String name) async => _isDesktop ? _cookiesFor(Uri.parse(url)).split(';').any((cookie) => cookie.trim().split('=').first.toLowerCase() == name.toLowerCase()) : await _channel.invokeMethod<bool>('hasCookie', {'url': url, 'name': name}) ?? false;
 
-  Future<Han1meHttpResponse> get(String url, {String? responseCharset, Map<String, String>? headers}) => _request(url, responseCharset: responseCharset, headers: headers);
+  Future<Han1meHttpResponse> get(String url, {String? responseCharset, Map<String, String>? headers, bool forceBuiltInHosts = false}) => _request(url, responseCharset: responseCharset, headers: headers, forceBuiltInHosts: forceBuiltInHosts);
 
   Future<void> download(String url, String path) async {
     if (!_isDesktop) {
@@ -114,8 +118,8 @@ class Han1meHttpClient {
   Future<Han1meHttpResponse> delete(String url, Map<String, String> data, {Map<String, String>? headers, bool json = false}) =>
       _request(url, method: 'DELETE', data: data, headers: headers, json: json);
 
-  Future<Han1meHttpResponse> _request(String url, {String methodName = 'request', String method = 'GET', Map<String, String>? data, Map<String, String>? headers, String? responseCharset, bool json = false}) async {
-    if (_isDesktop) return _desktopRequest(url, method: method, data: data, headers: headers, responseCharset: responseCharset, json: json);
+  Future<Han1meHttpResponse> _request(String url, {String methodName = 'request', String method = 'GET', Map<String, String>? data, Map<String, String>? headers, String? responseCharset, bool json = false, bool forceBuiltInHosts = false}) async {
+    if (_isDesktop) return _desktopRequest(url, method: method, data: data, headers: headers, responseCharset: responseCharset, json: json, forceBuiltInHosts: forceBuiltInHosts);
     final response = await _channel.invokeMethod<dynamic>(methodName, {
       'url': url,
       'method': method,
@@ -137,8 +141,8 @@ class Han1meHttpClient {
     );
   }
 
-  Future<Han1meHttpResponse> _desktopRequest(String url, {required String method, Map<String, String>? data, Map<String, String>? headers, String? responseCharset, required bool json}) async {
-    final client = _desktopClient();
+  Future<Han1meHttpResponse> _desktopRequest(String url, {required String method, Map<String, String>? data, Map<String, String>? headers, String? responseCharset, required bool json, bool forceBuiltInHosts = false}) async {
+    final client = _desktopClient(forceBuiltInHosts: forceBuiltInHosts);
     final request = await client.openUrl(method, Uri.parse(url));
     request.persistentConnection = false;
     request.headers.set(HttpHeaders.userAgentHeader, userAgent);
@@ -157,6 +161,7 @@ class Han1meHttpClient {
     final response = await request.close();
     final bytes = await response.fold<List<int>>([], (value, chunk) => value..addAll(chunk));
     _saveResponseCookies(request.uri, response.cookies);
+    if (forceBuiltInHosts) client.close(force: true);
     final responseHeaders = <String, List<String>>{};
     response.headers.forEach((name, values) => responseHeaders[name] = values);
     return Han1meHttpResponse(statusCode: response.statusCode, body: _decode(bytes, responseCharset), headers: responseHeaders, url: response.redirects.isEmpty ? request.uri.toString() : response.redirects.last.location.toString());
@@ -167,7 +172,16 @@ class Han1meHttpClient {
     return Encoding.getByName(charset ?? 'utf-8')?.decode(bytes) ?? utf8.decode(bytes, allowMalformed: true);
   }
 
-  HttpClient _desktopClient() {
+  HttpClient _desktopClient({bool forceBuiltInHosts = false}) {
+    if (forceBuiltInHosts) {
+      // 一次性专用客户端：绕过当前网络设置，强制走内置优选 IP 直连。
+      // 用于 Cloudflare 1034（Edge IP Restricted）时换一条边缘线路重试。
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 15)
+        ..connectionFactory = WindowsConnectionFactory(useBuiltInHosts: true, useDoh: false, dohPreset: '', dohCustomUrl: '', dohBootstrapIps: '', dohTimeoutSeconds: 10).call
+        ..badCertificateCallback = (cert, host, port) => WindowsConnectionFactory.hanimeHosts.contains(host);
+      return client;
+    }
     final existing = _sharedDesktopClient;
     if (existing != null) return existing;
     final client = HttpClient()..connectionTimeout = const Duration(seconds: 15);

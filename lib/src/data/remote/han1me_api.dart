@@ -477,7 +477,12 @@ class Han1meApi {
       'Sec-Fetch-Site': 'same-origin',
       if (referer != null) 'Referer': referer,
     };
-    final response = await _http.get(url, headers: headers);
+    var response = await _http.get(url, headers: headers);
+    // Cloudflare 1034（Edge IP Restricted）：当前线路连到的边缘 IP 不被该站点允许，
+    // 多由本地代理按域名分流的出口决定。改走内置优选 IP 的另一条边缘路径重试一次。
+    if (_http.canForceBuiltInHosts && isEdgeIpRestrictedResponse(response)) {
+      response = await _http.get(url, headers: headers, forceBuiltInHosts: true);
+    }
     // Cloudflare 限流：按 Retry-After 等待后重试一次。
     if (response.statusCode == 429 && !retried) {
       final retryAfter = int.tryParse(response.headers['retry-after']?.first ?? '') ?? 3;
@@ -575,14 +580,25 @@ class Han1meApi {
     if (statusCode != 403) return false;
     if ((headers['cf-mitigated'] ?? headers['CF-Mitigated'] ?? const <String>[]).any((value) => value.toLowerCase() == 'challenge')) return true;
     // 覆盖新旧两代拦截页文案：挑战页（Just a moment）、旧版 block（Attention Required）、
-    // 新版 block（Sorry, you have been blocked / You are unable to access）。
+    // 新版 block（Sorry, you have been blocked / You are unable to access）、
+    // 1034（Edge IP Restricted，边缘 IP 不被站点允许）。
     final lower = body.toLowerCase();
     return lower.contains('cf-chl-') ||
         lower.contains('challenge-form') ||
         lower.contains('just a moment') ||
         lower.contains('attention required') ||
         lower.contains('sorry, you have been blocked') ||
-        lower.contains('you are unable to access');
+        lower.contains('you are unable to access') ||
+        lower.contains('edge ip restricted') ||
+        lower.contains('error 1034');
+  }
+
+  /// Cloudflare 1034（Edge IP Restricted）：请求落到了该站点 DNS 不允许的边缘 IP 上，
+  /// 与 cookie/请求头无关，换一条到边缘的线路（如内置优选 IP 直连）即可绕开。
+  static bool isEdgeIpRestrictedResponse(Han1meHttpResponse response) {
+    if (response.statusCode != 403) return false;
+    final lower = response.body.toLowerCase();
+    return lower.contains('edge ip restricted') || lower.contains('error 1034');
   }
 
   VideoCard _card(dom.Element element) {
