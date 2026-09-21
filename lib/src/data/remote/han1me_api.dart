@@ -323,19 +323,20 @@ class Han1meApi {
   Future<void> updatePassword(String baseUrl, String userId, String token, String oldPassword, String password, String confirmation) => _form('$baseUrl/user/$userId', {'_token': token, '_method': 'patch', 'type': 'password', 'password_old': oldPassword, 'password_new': password, 'password_new_confirm': confirmation}, token);
 
   Future<RemoteLibrary> library(String baseUrl, String userId) async {
-    final pages = await Future.wait([
-      _document('$baseUrl/user/$userId/saves'),
-      _document('$baseUrl/user/$userId/likes'),
-      _document('$baseUrl/user/$userId/playlists'),
-      _document('$baseUrl/user/$userId/histories?sort=latest&page=1'),
+    // 错峰请求：瞬时并发会触发 Cloudflare 限流（429/403），每个请求间隔 250ms。
+    final pages = await _staggered([
+      () => _document('$baseUrl/user/$userId/saves'),
+      () => _document('$baseUrl/user/$userId/likes'),
+      () => _document('$baseUrl/user/$userId/playlists'),
+      () => _document('$baseUrl/user/$userId/histories?sort=latest&page=1'),
     ]);
     final subscriptionPage = await _document('$baseUrl/subscriptions?page=1');
     final subscriptionArtists = _subscriptionArtists(baseUrl, subscriptionPage);
     final subscriptionPages = _pageCount(subscriptionPage);
     final subscriptionVideos = <FollowingVideo>[
       ..._subscriptionVideos(baseUrl, subscriptionPage),
-      for (final page in await Future.wait([
-        for (var number = 2; number <= subscriptionPages; number++) _document('$baseUrl/subscriptions?page=$number'),
+      for (final page in await _staggered([
+        for (var number = 2; number <= subscriptionPages; number++) () => _document('$baseUrl/subscriptions?page=$number'),
       ]))
         ..._subscriptionVideos(baseUrl, page),
     ];
@@ -465,7 +466,7 @@ class Han1meApi {
   Future<void> voteComment(String baseUrl, String token, Comment comment, bool positive) => _form('$baseUrl/commentLike', {'_token': token, 'foreign_type': comment.id.isEmpty ? 'reply' : 'comment', 'foreign_id': comment.foreignId ?? '', 'is_positive': positive ? '1' : '0', 'comment-like-user-id': comment.likeUserId ?? '', 'comment-likes-count': '${comment.likesCount ?? 0}', 'comment-likes-sum': '${comment.likesSum ?? 0}', 'like-comment-status': comment.liked ? '1' : '0', 'unlike-comment-status': comment.disliked ? '1' : '0'}, token);
   Future<void> reportComment(String baseUrl, String token, String userId, Comment comment, String reason) => _form('$baseUrl/user/$userId/report', {'redirect-url': '', 'reportable-id': comment.reportableId ?? comment.foreignId ?? '', 'reportable-type': comment.reportableType ?? (comment.id.isEmpty ? 'reply' : 'comment'), 'reason': reason}, token);
 
-  Future<dom.Document> _document(String url, {String? referer}) async {
+  Future<dom.Document> _document(String url, {String? referer, bool retried = false}) async {
     // 对齐浏览器请求头形态：站点 WAF 会对 /user/ 等敏感路径上"非浏览器形态"的请求直接 403。
     final headers = {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
@@ -477,6 +478,12 @@ class Han1meApi {
       if (referer != null) 'Referer': referer,
     };
     final response = await _http.get(url, headers: headers);
+    // Cloudflare 限流：按 Retry-After 等待后重试一次。
+    if (response.statusCode == 429 && !retried) {
+      final retryAfter = int.tryParse(response.headers['retry-after']?.first ?? '') ?? 3;
+      await Future<void>.delayed(Duration(seconds: retryAfter.clamp(1, 15)));
+      return _document(url, referer: referer, retried: true);
+    }
     if (isCloudflareResponse(response.statusCode, response.headers, response.body)) throw CloudflareChallengeException(url);
     if (response.statusCode >= 400) {
       // message 带 URL 与响应体摘要：页面错误态能直接看出是 CF 拦截还是站点拒绝。
@@ -687,6 +694,15 @@ class Han1meApi {
     }
     return hash >= 0x80000000 ? hash - 0x100000000 : hash;
   }
+}
+
+Future<List<T>> _staggered<T>(List<Future<T> Function()> makers, {Duration gap = const Duration(milliseconds: 250)}) async {
+  final results = <T>[];
+  for (final make in makers) {
+    results.add(await make());
+    if (gap > Duration.zero) await Future<void>.delayed(gap);
+  }
+  return results;
 }
 
 extension _UniqueIterable<T> on Iterable<T> {
