@@ -100,9 +100,10 @@ class _RemoteLibrary extends ConsumerWidget {
       return Scaffold(
         appBar: AppBar(leading: permanentNavigationDrawer(context) ? null : IconButton(onPressed: openAppDrawer, icon: const Icon(Icons.menu)), title: Text(_tabTitle(l10n, initialTab))),
         body: ref.watch(remoteLibraryProvider).when(
+          skipLoadingOnRefresh: true,
           loading: () => const Center(child: M3EContainedLoadingIndicator()),
           error: (error, stackTrace) => _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
-          data: (library) => _remoteTabContent(context, library, initialTab, account?.csrfToken),
+          data: (library) => _remoteTabContent(context, ref, library, initialTab, account?.csrfToken),
         ),
       );
     }
@@ -113,9 +114,10 @@ class _RemoteLibrary extends ConsumerWidget {
         builder: (context) => Scaffold(
           appBar: AppBar(leading: ref.watch(settingsProvider).valueOrNull?.useNavigationDrawer ?? false ? (permanentNavigationDrawer(context) ? null : IconButton(onPressed: openAppDrawer, icon: const Icon(Icons.menu))) : null, title: Text(l10n.myLibrary), bottom: TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: _tabs(l10n))),
               body: ref.watch(remoteLibraryProvider).when(
+                    skipLoadingOnRefresh: true,
                     loading: () => const Center(child: M3EContainedLoadingIndicator()),
                     error: (error, stackTrace) => _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
-                    data: (library) => TabBarView(children: [for (var index = 0; index < 5; index++) _remoteTabContent(context, library, index, account?.csrfToken)]),
+                    data: (library) => TabBarView(children: [for (var index = 0; index < 5; index++) _remoteTabContent(context, ref, library, index, account?.csrfToken)]),
                   ),
         ),
       ),
@@ -123,9 +125,9 @@ class _RemoteLibrary extends ConsumerWidget {
   }
 }
 
-Widget _remoteTabContent(BuildContext context, RemoteLibrary library, int index, String? accountToken) {
+Widget _remoteTabContent(BuildContext context, WidgetRef ref, RemoteLibrary library, int index, String? accountToken) {
   final l10n = AppLocalizations.of(context)!;
-  return switch (index) {
+  final Widget content = switch (index) {
     0 => _SelectableVideos(
         videos: library.watchLater,
         emptyMessage: l10n.noWatchLater,
@@ -174,6 +176,25 @@ Widget _remoteTabContent(BuildContext context, RemoteLibrary library, int index,
     3 => _RemoteSubscriptions(artists: library.subscriptionArtists, videos: library.subscriptions),
     _ => _RemoteHistory(videos: library.history, token: accountToken ?? library.csrfToken),
   };
+  // 过滤横向滚动（订阅页艺人横滑条），只允许纵向列表触发下拉刷新。
+  return M3EPullToRefreshIndicator(
+    onRefresh: () => _refreshRemoteLibrary(ref),
+    notificationPredicate: (notification) => notification.depth == 0 && notification.metrics.axis == Axis.vertical,
+    child: content,
+  );
+}
+
+Future<void> _refreshRemoteLibrary(WidgetRef ref) async {
+  try {
+    if (ref.read(remoteLibraryProvider).isLoading) {
+      await ref.read(remoteLibraryProvider.future);
+    } else {
+      final pending = ref.refresh(remoteLibraryProvider.future);
+      await pending;
+    }
+  } catch (_) {
+    // 刷新失败时 provider 转为错误态由页面展示；这里吞掉异常让下拉动画正常收回
+  }
 }
 
 String _tabTitle(AppLocalizations l10n, int index) => switch (index) {
@@ -406,7 +427,7 @@ class _LocalPlaylists extends ConsumerWidget {
     return Stack(
       children: [
         playlists.isEmpty
-            ? Center(child: Text(l10n.noPlaylists))
+            ? CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [SliverFillRemaining(child: Center(child: Text(l10n.noPlaylists)))])
             : GridView.builder(
                 padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.paddingOf(context).bottom),
                 itemCount: playlists.length,
@@ -460,7 +481,7 @@ class _Playlists extends ConsumerWidget {
     return Stack(
       children: [
         playlists.isEmpty
-            ? Center(child: Text(l10n.noPlaylists))
+            ? CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [SliverFillRemaining(child: Center(child: Text(l10n.noPlaylists)))])
             : GridView.builder(
                 padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.paddingOf(context).bottom),
                 itemCount: playlists.length,
@@ -535,7 +556,7 @@ class _RemoteHistoryState extends ConsumerState<_RemoteHistory> with _VideoSelec
     return Stack(
       children: [
         widget.videos.isEmpty
-            ? Center(child: Text(l10n.noWatchHistory))
+            ? CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [SliverFillRemaining(child: Center(child: Text(l10n.noWatchHistory)))])
             : VideoCardGrid(
                 videos: widget.videos.map(_videoCard).toList(growable: false),
                 itemBuilder: (context, index, video, horizontal) {
@@ -608,7 +629,7 @@ class _Videos extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (videos.isEmpty) return Center(child: Text(message, style: Theme.of(context).textTheme.bodyLarge));
+    if (videos.isEmpty) return CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [SliverFillRemaining(child: Center(child: Text(message, style: Theme.of(context).textTheme.bodyLarge)))]);
     return VideoCardGrid(videos: videos.map(_videoCard).toList(growable: false));
   }
 }
@@ -631,7 +652,7 @@ class _SelectableVideosState extends ConsumerState<_SelectableVideos> with _Vide
     return Stack(
       children: [
         widget.videos.isEmpty
-            ? Center(child: Text(widget.emptyMessage, style: Theme.of(context).textTheme.bodyLarge))
+            ? CustomScrollView(physics: const AlwaysScrollableScrollPhysics(), slivers: [SliverFillRemaining(child: Center(child: Text(widget.emptyMessage, style: Theme.of(context).textTheme.bodyLarge)))])
             : VideoCardGrid(
                 videos: widget.videos.map(_videoCard).toList(growable: false),
                 itemBuilder: (context, index, video, horizontal) {
