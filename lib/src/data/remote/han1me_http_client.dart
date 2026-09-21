@@ -94,6 +94,9 @@ class Han1meHttpClient {
     }
     final client = _desktopClient();
     final request = await client.getUrl(Uri.parse(url));
+    // 禁用连接复用：CF 的 __cf_bm 等凭证与签发连接的 TLS 指纹绑定，
+    // 登录后 webview 的 cookie 会覆盖原生 cookie，复用旧连接会被 403。
+    request.persistentConnection = false;
     request.headers.set(HttpHeaders.userAgentHeader, userAgent);
     final cookie = _cookiesFor(request.uri);
     if (cookie.isNotEmpty) request.headers.set(HttpHeaders.cookieHeader, cookie);
@@ -137,6 +140,7 @@ class Han1meHttpClient {
   Future<Han1meHttpResponse> _desktopRequest(String url, {required String method, Map<String, String>? data, Map<String, String>? headers, String? responseCharset, required bool json}) async {
     final client = _desktopClient();
     final request = await client.openUrl(method, Uri.parse(url));
+    request.persistentConnection = false;
     request.headers.set(HttpHeaders.userAgentHeader, userAgent);
     final cookie = _cookiesFor(request.uri);
     if (cookie.isNotEmpty) request.headers.set(HttpHeaders.cookieHeader, cookie);
