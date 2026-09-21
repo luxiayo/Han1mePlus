@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/media_player_initializer.dart';
 import '../../core/playback_speed_policy.dart';
 import '../../core/settings.dart';
+import '../../data/han1me_repository.dart';
 import '../../data/local/json_store.dart';
-import '../../data/remote/han1me_http_client.dart';
 
 final settingsStoreProvider = Provider((_) => SettingsStore(JsonStore()));
 
@@ -55,7 +55,9 @@ class SettingsController extends AsyncNotifier<AppSettings> {
       current.dohBootstrapIps != next.dohBootstrapIps ||
       current.dohTimeoutSeconds != next.dohTimeoutSeconds;
 
-  Future<void> _syncNetworkSettings(AppSettings settings) => Han1meHttpClient().setNetworkSettings(useBuiltInHosts: settings.useBuiltInHosts, useDoh: settings.useDoh, dohPreset: settings.dohPreset, dohCustomUrl: settings.dohCustomUrl, dohBootstrapIps: settings.dohBootstrapIps, dohTimeoutSeconds: settings.dohTimeoutSeconds);
+  // 必须用 provider 单例：setNetworkSettings 只重置所属实例的共享 HttpClient，
+  // 用临时实例调用会让桌面端主链路继续用旧代理/DoH 配置直到重启。
+  Future<void> _syncNetworkSettings(AppSettings settings) => ref.read(han1meHttpClientProvider).setNetworkSettings(useBuiltInHosts: settings.useBuiltInHosts, useDoh: settings.useDoh, dohPreset: settings.dohPreset, dohCustomUrl: settings.dohCustomUrl, dohBootstrapIps: settings.dohBootstrapIps, dohTimeoutSeconds: settings.dohTimeoutSeconds);
 
   Future<void> setPreferredQuality(String quality) async {
     await saveChanges((current) => current.copyWith(preferredQuality: _qualityInt(quality)));

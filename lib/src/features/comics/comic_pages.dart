@@ -22,6 +22,8 @@ final comicHomeProvider = AsyncNotifierProvider<ComicHomeController, ComicHome>(
 class ComicHomeController extends AsyncNotifier<ComicHome> {
   @override
   Future<ComicHome> build() async {
+    // 等设置加载完成（网络配置同步后）再发首个请求，保证共享 HttpClient 带上代理/DoH。
+    await ref.read(settingsProvider.future);
     final cache = ref.read(comicHomeCacheProvider);
     final saved = await cache.readComics();
     if (saved != null) {
