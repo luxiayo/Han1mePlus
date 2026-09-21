@@ -56,6 +56,7 @@ class _CachePageState extends ConsumerState<CachePage> with TickerProviderStateM
                 ? _selectionActions(context, ref, state, tasks)
                 : [
                     IconButton(tooltip: l10n.createGroup, onPressed: () => context.push('/cache/groups/new'), icon: const Icon(Icons.create_new_folder_outlined)),
+                    IconButton(tooltip: l10n.settings, onPressed: () => context.push('/settings/download'), icon: const Icon(Icons.settings_outlined)),
                     PopupMenuButton<_CacheMenuAction>(
                       tooltip: l10n.more,
                       onSelected: (action) {
