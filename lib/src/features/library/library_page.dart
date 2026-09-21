@@ -195,7 +195,7 @@ class _RemoteErrorView extends ConsumerWidget {
     final l10n = AppLocalizations.of(context)!;
     final challenge = error is CloudflareChallengeException ? error as CloudflareChallengeException : null;
     final dio = error is DioException ? error as DioException : null;
-    final cloudflareBlocked = challenge != null || dio?.response?.statusCode == 403;
+    final cloudflareBlocked = challenge != null || dio?.response?.statusCode == 403 || dio?.message?.contains('HTTP 403') == true;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,

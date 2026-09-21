@@ -469,7 +469,8 @@ class Han1meApi {
     final response = await _http.get(url, headers: referer == null ? null : {'Referer': referer});
     if (isCloudflareResponse(response.statusCode, response.headers, response.body)) throw CloudflareChallengeException(url);
     if (response.statusCode >= 400) {
-      throw DioException(requestOptions: RequestOptions(path: url), message: 'Request failed: HTTP ${response.statusCode}');
+      // message 带 URL、response 带状态码：页面错误态能显示失败的具体请求，403 时验证按钮才能判定。
+      throw DioException(requestOptions: RequestOptions(path: url), message: 'Request failed: HTTP ${response.statusCode} ($url)', response: Response(statusCode: response.statusCode, requestOptions: RequestOptions(path: url)));
     }
     final requestedOrigin = Uri.parse(url).origin;
     final resolvedOrigin = Uri.tryParse(response.url)?.origin;
