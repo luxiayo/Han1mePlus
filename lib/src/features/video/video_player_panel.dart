@@ -539,8 +539,10 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
         ),
       );
     }
+    // 不再用 AspectRatio 包住整个 VideoPlayerSurface：视频比例一变控制栏会跟着容器缩放。
+    // 这里固定用 16:9 容器，视频比例由 _VideoViewport 内部 letterbox 处理，控制栏固定在容器边缘。
     return _PlayerFrame(
-      aspectRatio: controller.value.aspectRatio == 0 ? 16 / 9 : controller.value.aspectRatio,
+      aspectRatio: 16 / 9,
        child: VideoPlayerSurface(controller: _controllerNotifier, quality: _qualityNotifier, video: widget.video, onQualitySelected: _changeQuality, onSuperResolutionSelected: _changeSuperResolution, fullscreen: false, onFullscreen: _fullscreen, onBack: widget.onBack, onHome: widget.onHome, onNext: widget.onNext, onEpisodeSelected: widget.onEpisodeSelected),
     );
   }
