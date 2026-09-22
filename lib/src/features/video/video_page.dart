@@ -175,20 +175,23 @@ class _DetailBodyState extends ConsumerState<_DetailBody> {
   @override
   Widget build(BuildContext context) {
     final video = widget.video;
-    final isTablet = MediaQuery.sizeOf(context).shortestSide >= 600;
+    final size = MediaQuery.sizeOf(context);
+    final isTablet = size.shortestSide >= 600;
+    // 左右布局只用于"平板+当前横屏"；iPad 竖屏也走上下布局，与手机竖屏一致。
+    final sideBySide = isTablet && size.width > size.height;
     return SafeArea(
       bottom: false,
       child: Stack(
         children: [
-          if (isTablet)
+          if (sideBySide)
             _TabletVideoLayout(video: video, scrollBehavior: _scrollBehavior, homeTarget: widget.homeTarget)
           else
             _CompactVideoLayout(video: video, scrollBehavior: _scrollBehavior, homeTarget: widget.homeTarget),
           Positioned(
-            left: isTablet ? null : 0,
-            right: isTablet ? 16 : 0,
+            left: sideBySide ? null : 0,
+            right: sideBySide ? 16 : 0,
             bottom: 16,
-            child: _FloatingControls(video: video, scrollBehavior: _scrollBehavior, vertical: isTablet),
+            child: _FloatingControls(video: video, scrollBehavior: _scrollBehavior, vertical: sideBySide),
           ),
         ],
       ),
