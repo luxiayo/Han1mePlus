@@ -14,7 +14,7 @@ import '../settings/settings_controller.dart';
 import 'android_cast_button.dart';
 
 class VideoPlayerControls extends StatelessWidget {
-  const VideoPlayerControls({required this.controller, required this.fullscreen, required this.onFullscreen, required this.onInteraction, required this.video, required this.quality, required this.onQualitySelected, required this.onSuperResolutionSelected, this.onNext, this.onEpisodeSelected, this.seekPreviewPosition, super.key});
+  const VideoPlayerControls({required this.controller, required this.fullscreen, required this.onFullscreen, required this.onInteraction, required this.video, required this.quality, required this.onQualitySelected, required this.onSuperResolutionSelected, this.onNext, this.onEpisodeSelected, this.seekPreviewPosition, this.bottomOffset = 0, super.key});
   final VideoPlayerController controller;
   final bool fullscreen;
   final Future<void> Function() onFullscreen;
@@ -30,11 +30,14 @@ class VideoPlayerControls extends StatelessWidget {
   /// 避免拖动中反复 seek 导致进度条跳动。
   final Duration? seekPreviewPosition;
 
+  /// 控制栏距容器底部的距离；横屏有黑边时用于把控制栏放入黑边区域而非覆盖视频。
+  final double bottomOffset;
+
   @override
   Widget build(BuildContext context) => Positioned(
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: bottomOffset,
     child: Container(
       color: Colors.transparent,
       padding: const EdgeInsets.symmetric(horizontal: 8),

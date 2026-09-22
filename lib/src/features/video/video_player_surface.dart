@@ -344,27 +344,42 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
               onPanStart: _dragStart,
               onPanUpdate: _dragUpdate,
               onPanEnd: _dragEnd,
-              child: Stack(fit: StackFit.expand, children: [
+              child: LayoutBuilder(builder: (context, constraints) {
+                final cw = constraints.maxWidth;
+                final ch = constraints.maxHeight;
+                final vr = controller.value.aspectRatio == 0 ? 16 / 9 : controller.value.aspectRatio;
+                // 模拟 _VideoViewport 的居中 aspect-fit，算出视频在容器中的实际位置。
+                final vh = cw / ch > vr ? ch : cw / vr;
+                final vt = (ch - vh) / 2;
+                final vb = vt + vh;
+                final isLandscape = cw > ch;
+                // 横屏且黑边高度足够放下控制栏时，把控件放入黑边而非覆盖视频。
+                final useTopBar = isLandscape && vt >= 44;
+                final bottomControls = VideoPlayerControls(controller: controller, fullscreen: widget.fullscreen, onFullscreen: widget.onFullscreen, onInteraction: _restartTimer, video: widget.video, quality: widget.quality, onQualitySelected: widget.onQualitySelected, onSuperResolutionSelected: widget.onSuperResolutionSelected, onNext: widget.onNext, onEpisodeSelected: widget.onEpisodeSelected, seekPreviewPosition: _dragTargetPosition, bottomOffset: isLandscape ? (ch - vb).clamp(0, double.infinity) : 0);
+                final backTop = useTopBar ? (vt - 44) / 2 : 8.0;
+                final skipTop = useTopBar ? (vt - 44) / 2 : 4.0;
+                final titleTop = useTopBar ? (vt - 36) / 2 : 8.0;
+                return Stack(fit: StackFit.expand, children: [
                 const ColoredBox(color: Colors.black),
                 _VideoViewport(controller: controller),
                 ValueListenableBuilder<VideoPlayerValue>(valueListenable: controller, builder: (context, value, _) => value.isBuffering ? const Center(child: M3ELoadingIndicator(color: Colors.white)) : const SizedBox.shrink()),
-                ValueListenableBuilder<VideoPlayerValue>(valueListenable: controller, builder: (context, value, _) => _showControls && !_locked ? VideoPlayerControls(controller: controller, fullscreen: widget.fullscreen, onFullscreen: widget.onFullscreen, onInteraction: _restartTimer, video: widget.video, quality: widget.quality, onQualitySelected: widget.onQualitySelected, onSuperResolutionSelected: widget.onSuperResolutionSelected, onNext: widget.onNext, onEpisodeSelected: widget.onEpisodeSelected, seekPreviewPosition: _dragTargetPosition) : const SizedBox.shrink()),
-                if (_locked) Align(alignment: Alignment.centerRight, child: IconButton(color: Colors.white, tooltip: l10n.unlockControls, onPressed: () { setState(() => _locked = false); _restartTimer(); }, icon: const Icon(Icons.lock))),
+                ValueListenableBuilder<VideoPlayerValue>(valueListenable: controller, builder: (context, value, _) => _showControls && !_locked ? bottomControls : const SizedBox.shrink()),
+                if (_locked) useTopBar ? Positioned(top: backTop, right: 8, child: IconButton(color: Colors.white, tooltip: l10n.unlockControls, onPressed: () { setState(() => _locked = false); _restartTimer(); }, icon: const Icon(Icons.lock))) : Align(alignment: Alignment.centerRight, child: IconButton(color: Colors.white, tooltip: l10n.unlockControls, onPressed: () { setState(() => _locked = false); _restartTimer(); }, icon: const Icon(Icons.lock))),
                 if (_showControls && !_locked && widget.onBack != null)
                   Positioned(
-                    top: 8,
+                    top: backTop,
                     left: 8,
                     child: Row(mainAxisSize: MainAxisSize.min, children: [
                       BackButton(color: Colors.white, onPressed: widget.onBack),
                       if (widget.onHome != null) IconButton(color: Colors.white, tooltip: l10n.home, onPressed: widget.onHome, icon: const Icon(Icons.home_outlined)),
                     ]),
                   ),
-                if (_showControls && widget.fullscreen && !_locked) Align(alignment: Alignment.centerRight, child: IconButton(color: Colors.white, tooltip: l10n.lockControls, onPressed: () => setState(() => _locked = true), icon: const Icon(Icons.lock_open_outlined))),
+                if (_showControls && widget.fullscreen && !_locked) useTopBar ? Positioned(top: backTop, right: 8, child: IconButton(color: Colors.white, tooltip: l10n.lockControls, onPressed: () => setState(() => _locked = true), icon: const Icon(Icons.lock_open_outlined))) : Align(alignment: Alignment.centerRight, child: IconButton(color: Colors.white, tooltip: l10n.lockControls, onPressed: () => setState(() => _locked = true), icon: const Icon(Icons.lock_open_outlined))),
                 if (widget.fullscreen && widget.keyframes.isNotEmpty) _KeyframeCountdown(controller: controller, keyframes: widget.keyframes),
-                if (_showControls && widget.fullscreen && !_locked) Positioned(top: 8, left: widget.onHome != null ? 96 : 48, right: 212, child: _MarqueeTitle(title: widget.video.title)),
+                if (_showControls && widget.fullscreen && !_locked) Positioned(top: titleTop, left: widget.onHome != null ? 96 : 48, right: 212, child: _MarqueeTitle(title: widget.video.title)),
                 if (_showControls && !_locked)
                   Positioned(
-                    top: 4,
+                    top: skipTop,
                     right: widget.fullscreen && widget.onKeyframes != null ? 56 : 4,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -379,7 +394,7 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
                   ),
                 if (_showControls && widget.fullscreen && !_locked && widget.onKeyframes != null)
                   Positioned(
-                    top: 8,
+                    top: useTopBar ? backTop : 8,
                     right: 8,
                     child: Tooltip(
                       message: l10n.longPressAddKeyframe,
@@ -399,7 +414,8 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
                     _AdjustmentKind.volume => Positioned(top: 24, right: 16, child: _AdjustmentHud(adjustment: _adjustment!)),
                     _ => Positioned(top: 24, left: 0, right: 0, child: Center(child: _AdjustmentHud(adjustment: _adjustment!))),
                   },
-              ]),
+              ]);
+              }),
             ),
           );
         },
