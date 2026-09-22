@@ -48,6 +48,7 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
   _DragDirection? _dragDirection;
   Duration? _seekStartPosition;
   Duration? _dragTargetPosition;
+  DateTime _lastDragSeekAt = DateTime.fromMillisecondsSinceEpoch(0);
   double _dragTotalDx = 0;
   double _brightness = 1;
   double _volume = 1;
@@ -261,6 +262,7 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
     _dragDirection = null;
     _seekStartPosition = widget.controller.value?.value.position;
     _dragTargetPosition = _seekStartPosition;
+    _lastDragSeekAt = DateTime.fromMillisecondsSinceEpoch(0);
     _dragTotalDx = 0;
   }
 
@@ -279,8 +281,14 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
         final startMs = _seekStartPosition?.inMilliseconds ?? controller.value.position.inMilliseconds;
         final target = (startMs + (_dragTotalDx / size.width * duration.inMilliseconds * sensitivity)).round().clamp(0, duration.inMilliseconds).toInt();
         _dragTargetPosition = Duration(milliseconds: target);
-        // 拖动期间只更新视觉指示，不调 seekTo——否则播放器位置被反复拽动导致进度条跳动，真正 seek 在 _dragEnd 一次性完成。
         setState(() => _adjustment = _Adjustment.seek(target - startMs, Duration(milliseconds: target), duration));
+        // 节流 seek 让画面实时更新确认目标帧；进度条通过 seekPreviewPosition 显示目标位置，
+        // 不受播放器实际位置变动影响。最终位置在 _dragEnd 补齐。
+        final now = DateTime.now();
+        if (now.difference(_lastDragSeekAt) >= const Duration(milliseconds: 150)) {
+          _lastDragSeekAt = now;
+          controller.seekTo(Duration(milliseconds: target));
+        }
       }
       return;
     }
@@ -293,7 +301,10 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
       final target = _dragTargetPosition;
       if (target != null) widget.controller.value?.seekTo(target);
     }
-    _dragStartX = null; _dragDirection = null; _seekStartPosition = null; _dragTargetPosition = null; _dragTotalDx = 0; _adjustmentClearTimer?.cancel(); _adjustmentClearTimer = Timer(const Duration(milliseconds: 700), () { if (mounted) setState(() => _adjustment = null); });
+    _dragStartX = null; _dragDirection = null; _seekStartPosition = null; _dragTargetPosition = null; _dragTotalDx = 0;
+    // 触发重建让控制栏退出 seekPreview 状态、恢复显示播放器实际位置。
+    setState(() {});
+    _adjustmentClearTimer?.cancel(); _adjustmentClearTimer = Timer(const Duration(milliseconds: 700), () { if (mounted) setState(() => _adjustment = null); });
   }
 
   Future<void> _enterPictureInPicture(VideoPlayerController controller) async {
@@ -337,7 +348,7 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
                 const ColoredBox(color: Colors.black),
                 _VideoViewport(controller: controller),
                 ValueListenableBuilder<VideoPlayerValue>(valueListenable: controller, builder: (context, value, _) => value.isBuffering ? const Center(child: M3ELoadingIndicator(color: Colors.white)) : const SizedBox.shrink()),
-                ValueListenableBuilder<VideoPlayerValue>(valueListenable: controller, builder: (context, value, _) => _showControls && !_locked ? VideoPlayerControls(controller: controller, fullscreen: widget.fullscreen, onFullscreen: widget.onFullscreen, onInteraction: _restartTimer, video: widget.video, quality: widget.quality, onQualitySelected: widget.onQualitySelected, onSuperResolutionSelected: widget.onSuperResolutionSelected, onNext: widget.onNext, onEpisodeSelected: widget.onEpisodeSelected) : const SizedBox.shrink()),
+                ValueListenableBuilder<VideoPlayerValue>(valueListenable: controller, builder: (context, value, _) => _showControls && !_locked ? VideoPlayerControls(controller: controller, fullscreen: widget.fullscreen, onFullscreen: widget.onFullscreen, onInteraction: _restartTimer, video: widget.video, quality: widget.quality, onQualitySelected: widget.onQualitySelected, onSuperResolutionSelected: widget.onSuperResolutionSelected, onNext: widget.onNext, onEpisodeSelected: widget.onEpisodeSelected, seekPreviewPosition: _dragTargetPosition) : const SizedBox.shrink()),
                 if (_locked) Align(alignment: Alignment.centerRight, child: IconButton(color: Colors.white, tooltip: l10n.unlockControls, onPressed: () { setState(() => _locked = false); _restartTimer(); }, icon: const Icon(Icons.lock))),
                 if (_showControls && !_locked && widget.onBack != null)
                   Positioned(

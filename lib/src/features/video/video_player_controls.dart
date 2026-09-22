@@ -14,7 +14,7 @@ import '../settings/settings_controller.dart';
 import 'android_cast_button.dart';
 
 class VideoPlayerControls extends StatelessWidget {
-  const VideoPlayerControls({required this.controller, required this.fullscreen, required this.onFullscreen, required this.onInteraction, required this.video, required this.quality, required this.onQualitySelected, required this.onSuperResolutionSelected, this.onNext, this.onEpisodeSelected, super.key});
+  const VideoPlayerControls({required this.controller, required this.fullscreen, required this.onFullscreen, required this.onInteraction, required this.video, required this.quality, required this.onQualitySelected, required this.onSuperResolutionSelected, this.onNext, this.onEpisodeSelected, this.seekPreviewPosition, super.key});
   final VideoPlayerController controller;
   final bool fullscreen;
   final Future<void> Function() onFullscreen;
@@ -25,6 +25,10 @@ class VideoPlayerControls extends StatelessWidget {
   final ValueChanged<SuperResolutionMode> onSuperResolutionSelected;
   final VoidCallback? onNext;
   final ValueChanged<VideoCard>? onEpisodeSelected;
+
+  /// 手势拖动期间的 seek 目标位置；非 null 时进度条与时间文本显示它而非播放器实际位置，
+  /// 避免拖动中反复 seek 导致进度条跳动。
+  final Duration? seekPreviewPosition;
 
   @override
   Widget build(BuildContext context) => Positioned(
@@ -38,9 +42,10 @@ class VideoPlayerControls extends StatelessWidget {
         valueListenable: controller,
         builder: (context, value, _) {
           final l10n = AppLocalizations.of(context)!;
-          if (!fullscreen) return SizedBox(height: 48, child: Row(children: [IconButton(color: Colors.white, tooltip: value.isPlaying ? l10n.pause : l10n.play, visualDensity: VisualDensity.compact, onPressed: () { value.isPlaying ? controller.pause() : controller.play(); onInteraction(); }, icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow)), Expanded(child: _Scrubber(value: value, controller: controller, onInteraction: onInteraction)), SizedBox(width: 112, child: Text('${_formatDuration(value.position)}/${_formatDuration(value.duration)}', maxLines: 1, textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()]))), IconButton(color: Colors.white, tooltip: l10n.fullscreenPlayback, visualDensity: VisualDensity.compact, onPressed: onFullscreen, icon: const Icon(Icons.fullscreen))]));
+          final displayPosition = seekPreviewPosition ?? value.position;
+          if (!fullscreen) return SizedBox(height: 48, child: Row(children: [IconButton(color: Colors.white, tooltip: value.isPlaying ? l10n.pause : l10n.play, visualDensity: VisualDensity.compact, onPressed: () { value.isPlaying ? controller.pause() : controller.play(); onInteraction(); }, icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow)), Expanded(child: _Scrubber(value: value, controller: controller, onInteraction: onInteraction, previewPosition: seekPreviewPosition)), SizedBox(width: 112, child: Text('${_formatDuration(displayPosition)}/${_formatDuration(value.duration)}', maxLines: 1, textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()]))), IconButton(color: Colors.white, tooltip: l10n.fullscreenPlayback, visualDensity: VisualDensity.compact, onPressed: onFullscreen, icon: const Icon(Icons.fullscreen))]));
           return Column(mainAxisSize: MainAxisSize.min, children: [
-            Row(children: [SizedBox(width: 48, child: Text(_formatDuration(value.position), style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()]))), Expanded(child: _Scrubber(value: value, controller: controller, onInteraction: onInteraction)), SizedBox(width: 48, child: Text(_formatDuration(value.duration), textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()])))]),
+            Row(children: [SizedBox(width: 48, child: Text(_formatDuration(displayPosition), style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()]))), Expanded(child: _Scrubber(value: value, controller: controller, onInteraction: onInteraction, previewPosition: seekPreviewPosition)), SizedBox(width: 48, child: Text(_formatDuration(value.duration), textAlign: TextAlign.end, style: const TextStyle(color: Colors.white, fontFeatures: [FontFeature.tabularFigures()])))]),
             SizedBox(height: 40, child: Row(children: [IconButton(color: Colors.white, tooltip: value.isPlaying ? l10n.pause : l10n.play, visualDensity: VisualDensity.compact, onPressed: () { value.isPlaying ? controller.pause() : controller.play(); onInteraction(); }, icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow)), if (onNext != null) IconButton(color: Colors.white, tooltip: l10n.autoPlayNext, visualDensity: VisualDensity.compact, onPressed: onNext, icon: const Icon(Icons.skip_next)), const Spacer(), _AspectMenu(), if (onEpisodeSelected != null && video.playlist.isNotEmpty) _EpisodeMenu(video: video, onSelected: onEpisodeSelected!), _Anime4KMenu(onSelected: onSuperResolutionSelected), if (video.sources.isNotEmpty) _QualityMenu(sources: video.sources, quality: quality, onSelected: onQualitySelected), _SpeedMenu(controller: controller, onInteraction: onInteraction), AndroidCastButton(sources: video.sources, quality: quality), IconButton(color: Colors.white, tooltip: l10n.exitFullscreen, visualDensity: VisualDensity.compact, onPressed: onFullscreen, icon: const Icon(Icons.fullscreen_exit))])),
           ]);
         },
@@ -51,11 +56,14 @@ class VideoPlayerControls extends StatelessWidget {
 
 /// 进度条拖动只在本地更新滑块位置，松手才 seek——避免拖动期间每个 tick 触发 seek。
 class _Scrubber extends StatefulWidget {
-  const _Scrubber({required this.value, required this.controller, required this.onInteraction});
+  const _Scrubber({required this.value, required this.controller, required this.onInteraction, this.previewPosition});
 
   final VideoPlayerValue value;
   final VideoPlayerController controller;
   final VoidCallback onInteraction;
+
+  /// 手势拖动期间的 seek 目标位置；非 null 时用它计算进度而非 value.position。
+  final Duration? previewPosition;
 
   @override
   State<_Scrubber> createState() => _ScrubberState();
@@ -66,7 +74,8 @@ class _ScrubberState extends State<_Scrubber> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = widget.value.duration == Duration.zero ? 0.0 : widget.value.position.inMilliseconds / widget.value.duration.inMilliseconds;
+    final position = widget.previewPosition ?? widget.value.position;
+    final progress = widget.value.duration == Duration.zero ? 0.0 : position.inMilliseconds / widget.value.duration.inMilliseconds;
     return SliderTheme(
       data: const SliderThemeData(),
       child: Slider(
