@@ -378,6 +378,7 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
     if (controller == null || _fullscreenOpen) return;
     _fullscreenOpen = true;
     final isMac = Platform.isMacOS;
+    final wasPlaying = controller.value.isInitialized && controller.value.isPlaying;
     try {
       if (isMac) {
         await DesktopFullScreen.toggle();
@@ -385,6 +386,7 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
         await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
         await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
       }
+      if (wasPlaying) unawaited(_resumeAfterTransition(controller));
       if (mounted) await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => _FullscreenPlayer(controller: _controllerNotifier, quality: _qualityNotifier, video: widget.video, onQualitySelected: _changeQuality, onSuperResolutionSelected: _changeSuperResolution, onEpisodeSelected: widget.onEpisodeSelected == null ? null : (episode) { Navigator.of(context).pop(); widget.onEpisodeSelected!(episode); }, onNext: widget.onNext, onHome: widget.onHome == null ? null : () { Navigator.of(context).pop(); _disposeActiveController(); widget.onHome?.call(); })));
     } finally {
       _fullscreenOpen = false;
@@ -396,6 +398,7 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
           await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
         }
       } finally {
+        if (wasPlaying && mounted) unawaited(_resumeAfterTransition(_controllerNotifier.value ?? controller));
         if (mounted) {
           _syncSource();
         } else if (_disposed) {
@@ -409,6 +412,15 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
         }
       }
     }
+  }
+
+  // 全屏切换时窗口尺寸动画会触发播放内核重建视频输出，导致短暂暂停；
+  // 在过渡期间自动恢复播放状态，用户不会感知到中断。
+  Future<void> _resumeAfterTransition(VideoPlayerController controller) async {
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    try {
+      if (controller.value.isInitialized && !controller.value.isPlaying) await controller.play();
+    } catch (_) {}
   }
 
   // Stops and releases the active controller right away (used when leaving
