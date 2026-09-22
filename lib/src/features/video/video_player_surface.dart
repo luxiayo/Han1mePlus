@@ -57,6 +57,7 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
   Timer? _speedBoostTimer;
   double? _speedBeforeKeyBoost;
   double? _speedBeforeLongPress;
+  int _speedRampToken = 0;
 
   @override
   void initState() {
@@ -235,7 +236,20 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
   }
 
   Future<void> _applySpeed(VideoPlayerController controller, double speed) async {
+    // 令牌取消：快速反复长按时，旧过渡立即让位给新目标倍速。
+    final token = ++_speedRampToken;
     try {
+      final current = controller.value.playbackSpeed;
+      // 大幅变速一步跳变，播放内核按音频时钟重排帧时间轴会产生一次可见的
+      // 帧衔接跳变；播放中改为分步过渡，每步的重排小到不可察。
+      if (controller.value.isPlaying && (speed - current).abs() >= .5) {
+        for (final step in PlaybackSpeedPolicy.rampSteps(current, speed)) {
+          if (token != _speedRampToken) return;
+          await controller.setPlaybackSpeed(step);
+          await Future<void>.delayed(const Duration(milliseconds: 40));
+        }
+        if (token != _speedRampToken) return;
+      }
       if ((controller.value.playbackSpeed - speed).abs() > .001) {
         await controller.setPlaybackSpeed(speed);
       }
