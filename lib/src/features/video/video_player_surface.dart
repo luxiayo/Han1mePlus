@@ -331,7 +331,9 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
           return MouseRegion(
             onHover: (_) => _handleMouseHover(),
             onExit: (_) => _restartTimer(),
-            child: GestureDetector(
+            child: _PinchFullscreen(
+              onToggle: () => unawaited(widget.onFullscreen()),
+              child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _toggleControls,
               onDoubleTap: _togglePlayback,
@@ -417,9 +419,56 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
               ]);
               }),
             ),
+            ),
           );
         },
       ),
+    );
+  }
+}
+
+/// 双指张开进入全屏、捏合退出全屏。包裹在播放器手势外层，
+/// 单指拖动/点击等仍由内层 GestureDetector 处理，互不干扰。
+class _PinchFullscreen extends StatefulWidget {
+  const _PinchFullscreen({required this.onToggle, required this.child});
+
+  final VoidCallback onToggle;
+  final Widget child;
+
+  @override
+  State<_PinchFullscreen> createState() => _PinchFullscreenState();
+}
+
+class _PinchFullscreenState extends State<_PinchFullscreen> {
+  bool _active = false;
+  bool _triggered = false;
+
+  // 张开超过 12% 触发进入全屏，捏合到 88% 触发退出全屏。
+  static const _zoomInThreshold = 1.12;
+  static const _zoomOutThreshold = .88;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onScaleStart: (details) {
+        _active = details.pointerCount >= 2;
+        _triggered = false;
+      },
+      onScaleUpdate: (details) {
+        if (!_active || _triggered) return;
+        if (details.pointerCount < 2) return;
+        // details.scale 从 1.0 起累积：>1 为张开，<1 为捏合。
+        if (details.scale >= _zoomInThreshold || details.scale <= _zoomOutThreshold) {
+          _triggered = true;
+          widget.onToggle();
+        }
+      },
+      onScaleEnd: (_) {
+        _active = false;
+        _triggered = false;
+      },
+      child: widget.child,
     );
   }
 }
