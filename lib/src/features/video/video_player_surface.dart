@@ -48,7 +48,6 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
   _DragDirection? _dragDirection;
   Duration? _seekStartPosition;
   Duration? _dragTargetPosition;
-  DateTime _lastDragSeekAt = DateTime.fromMillisecondsSinceEpoch(0);
   double _dragTotalDx = 0;
   double _brightness = 1;
   double _volume = 1;
@@ -262,7 +261,6 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
     _dragDirection = null;
     _seekStartPosition = widget.controller.value?.value.position;
     _dragTargetPosition = _seekStartPosition;
-    _lastDragSeekAt = DateTime.fromMillisecondsSinceEpoch(0);
     _dragTotalDx = 0;
   }
 
@@ -281,13 +279,8 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
         final startMs = _seekStartPosition?.inMilliseconds ?? controller.value.position.inMilliseconds;
         final target = (startMs + (_dragTotalDx / size.width * duration.inMilliseconds * sensitivity)).round().clamp(0, duration.inMilliseconds).toInt();
         _dragTargetPosition = Duration(milliseconds: target);
+        // 拖动期间只更新视觉指示，不调 seekTo——否则播放器位置被反复拽动导致进度条跳动，真正 seek 在 _dragEnd 一次性完成。
         setState(() => _adjustment = _Adjustment.seek(target - startMs, Duration(milliseconds: target), duration));
-        // 拖动期间节流 seek，最终位置在 _dragEnd 补齐。
-        final now = DateTime.now();
-        if (now.difference(_lastDragSeekAt) >= const Duration(milliseconds: 150)) {
-          _lastDragSeekAt = now;
-          controller.seekTo(Duration(milliseconds: target));
-        }
       }
       return;
     }
