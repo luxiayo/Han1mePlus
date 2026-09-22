@@ -333,6 +333,9 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
             onExit: (_) => _restartTimer(),
             child: _PinchFullscreen(
               onToggle: () => unawaited(widget.onFullscreen()),
+              onDragStart: _dragStart,
+              onDragUpdate: _dragUpdate,
+              onDragEnd: _dragEnd,
               child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _toggleControls,
@@ -343,9 +346,6 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
               onSecondaryLongPressStart: (_) => _longPress(true),
               onSecondaryLongPressEnd: (_) => _longPress(false),
               onSecondaryLongPressCancel: () => _longPress(false),
-              onPanStart: _dragStart,
-              onPanUpdate: _dragUpdate,
-              onPanEnd: _dragEnd,
               child: LayoutBuilder(builder: (context, constraints) {
                 final cw = constraints.maxWidth;
                 final ch = constraints.maxHeight;
@@ -427,12 +427,15 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
   }
 }
 
-/// 双指张开进入全屏、捏合退出全屏。包裹在播放器手势外层，
-/// 单指拖动/点击等仍由内层 GestureDetector 处理，互不干扰。
+/// 手势统一入口：单指拖动路由到 seek/音量/亮度，双指捏合路由到全屏切换。
+/// 放在外层因为 Flutter 手势竞争中内层 pan 会抢走双指事件，scale 永远收不到。
 class _PinchFullscreen extends StatefulWidget {
-  const _PinchFullscreen({required this.onToggle, required this.child});
+  const _PinchFullscreen({required this.onToggle, required this.onDragStart, required this.onDragUpdate, required this.onDragEnd, required this.child});
 
   final VoidCallback onToggle;
+  final void Function(DragStartDetails) onDragStart;
+  final void Function(DragUpdateDetails) onDragUpdate;
+  final void Function(DragEndDetails) onDragEnd;
   final Widget child;
 
   @override
@@ -440,8 +443,9 @@ class _PinchFullscreen extends StatefulWidget {
 }
 
 class _PinchFullscreenState extends State<_PinchFullscreen> {
-  bool _active = false;
+  bool _pinching = false;
   bool _triggered = false;
+  bool _dragging = false;
 
   // 张开超过 12% 触发进入全屏，捏合到 88% 触发退出全屏。
   static const _zoomInThreshold = 1.12;
@@ -452,20 +456,39 @@ class _PinchFullscreenState extends State<_PinchFullscreen> {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onScaleStart: (details) {
-        _active = details.pointerCount >= 2;
-        _triggered = false;
-      },
-      onScaleUpdate: (details) {
-        if (!_active || _triggered) return;
-        if (details.pointerCount < 2) return;
-        // details.scale 从 1.0 起累积：>1 为张开，<1 为捏合。
-        if (details.scale >= _zoomInThreshold || details.scale <= _zoomOutThreshold) {
-          _triggered = true;
-          widget.onToggle();
+        if (details.pointerCount >= 2) {
+          // 双指：进入捏合模式，取消可能已开始的单指拖动。
+          _pinching = true;
+          _triggered = false;
+          if (_dragging) {
+            _dragging = false;
+            widget.onDragEnd(DragEndDetails(globalPosition: details.localFocalPoint));
+          }
+        } else if (!_pinching && !_dragging) {
+          _dragging = true;
+          widget.onDragStart(DragStartDetails(localPosition: details.localFocalPoint, globalPosition: details.localFocalPoint));
         }
       },
-      onScaleEnd: (_) {
-        _active = false;
+      onScaleUpdate: (details) {
+        if (_pinching) {
+          if (_triggered || details.pointerCount < 2) return;
+          // details.scale 从 1.0 起累积：>1 为张开，<1 为捏合。
+          if (details.scale >= _zoomInThreshold || details.scale <= _zoomOutThreshold) {
+            _triggered = true;
+            widget.onDragEnd(DragEndDetails(globalPosition: details.localFocalPoint));
+            widget.onToggle();
+          }
+          return;
+        }
+        if (!_dragging) return;
+        widget.onDragUpdate(DragUpdateDetails(localPosition: details.localFocalPoint, globalPosition: details.localFocalPoint, delta: details.focalPointDelta));
+      },
+      onScaleEnd: (details) {
+        if (_dragging) {
+          _dragging = false;
+          widget.onDragEnd(DragEndDetails(velocity: details.velocity));
+        }
+        _pinching = false;
         _triggered = false;
       },
       child: widget.child,
