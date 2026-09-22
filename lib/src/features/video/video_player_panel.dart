@@ -378,13 +378,17 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
     if (controller == null || _fullscreenOpen) return;
     _fullscreenOpen = true;
     final isMac = Platform.isMacOS;
+    // 平板（iPad 等）不锁横屏：用户竖屏进全屏就保持竖屏，自由旋转。
+    final lockLandscape = !isMac && MediaQuery.sizeOf(context).shortestSide < 600;
     final wasPlaying = controller.value.isInitialized && controller.value.isPlaying;
     try {
       if (isMac) {
         await DesktopFullScreen.toggle();
       } else {
         await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
-        await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+        if (lockLandscape) {
+          await SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
+        }
       }
       if (wasPlaying) unawaited(_resumeAfterTransition(controller));
       if (mounted) await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => _FullscreenPlayer(controller: _controllerNotifier, quality: _qualityNotifier, video: widget.video, onQualitySelected: _changeQuality, onSuperResolutionSelected: _changeSuperResolution, onEpisodeSelected: widget.onEpisodeSelected == null ? null : (episode) { Navigator.of(context).pop(); widget.onEpisodeSelected!(episode); }, onNext: widget.onNext, onHome: widget.onHome == null ? null : () { Navigator.of(context).pop(); _disposeActiveController(); widget.onHome?.call(); })));
