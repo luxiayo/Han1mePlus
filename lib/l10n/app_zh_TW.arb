@@ -849,5 +849,26 @@
         "type": "int"
       }
     }
-  }
+  },
+  "librarySyncTitle": "正在同步雲端收藏",
+  "librarySyncStep": "正在取得 {step}（{current}/{total}）…",
+  "@librarySyncStep": {
+    "placeholders": {
+      "step": {
+        "type": "String"
+      },
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "librarySyncHint": "為避免站點限流，請求分步串列進行，首次同步需要一點時間",
+  "libraryStepWatchLater": "稍後觀看",
+  "libraryStepFavorites": "喜歡的影片",
+  "libraryStepPlaylists": "播放清單",
+  "libraryStepHistory": "觀看歷史",
+  "libraryStepSubscriptions": "我的訂閱"
 }

@@ -322,14 +322,18 @@ class Han1meApi {
 
   Future<void> updatePassword(String baseUrl, String userId, String token, String oldPassword, String password, String confirmation) => _form('$baseUrl/user/$userId', {'_token': token, '_method': 'patch', 'type': 'password', 'password_old': oldPassword, 'password_new': password, 'password_new_confirm': confirmation}, token);
 
-  Future<RemoteLibrary> library(String baseUrl, String userId) async {
+  Future<RemoteLibrary> library(String baseUrl, String userId, {void Function(int step)? onStep}) async {
     // 错峰请求：瞬时并发会触发 Cloudflare 限流（429/403），每个请求间隔 250ms。
+    // onStep 上报当前步骤（0-4），收藏页加载时给用户分步进度提示。
+    void report(int step) => onStep?.call(step);
+    report(0);
     final pages = await _staggered([
       () => _document('$baseUrl/user/$userId/saves'),
       () => _document('$baseUrl/user/$userId/likes'),
       () => _document('$baseUrl/user/$userId/playlists'),
       () => _document('$baseUrl/user/$userId/histories?sort=latest&page=1'),
     ]);
+    report(4);
     final subscriptionPage = await _document('$baseUrl/subscriptions?page=1');
     final subscriptionArtists = _subscriptionArtists(baseUrl, subscriptionPage);
     final subscriptionPages = _pageCount(subscriptionPage);

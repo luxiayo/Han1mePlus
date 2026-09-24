@@ -1736,6 +1736,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String operationPartialFailure(int count) {
     return '操作完成，$count 项失败';
   }
+
+  @override
+  String get librarySyncTitle => '正在同步云端收藏';
+
+  @override
+  String librarySyncStep(String step, int current, int total) {
+    return '正在获取 $step（$current/$total）…';
+  }
+
+  @override
+  String get librarySyncHint => '为避免站点限流，请求分步串行进行，首次同步需要一点时间';
+
+  @override
+  String get libraryStepWatchLater => '稍后再看';
+
+  @override
+  String get libraryStepFavorites => '喜欢的影片';
+
+  @override
+  String get libraryStepPlaylists => '播放清单';
+
+  @override
+  String get libraryStepHistory => '观看历史';
+
+  @override
+  String get libraryStepSubscriptions => '我的订阅';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -3470,4 +3496,30 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String operationPartialFailure(int count) {
     return '操作完成，$count 項失敗';
   }
+
+  @override
+  String get librarySyncTitle => '正在同步雲端收藏';
+
+  @override
+  String librarySyncStep(String step, int current, int total) {
+    return '正在取得 $step（$current/$total）…';
+  }
+
+  @override
+  String get librarySyncHint => '為避免站點限流，請求分步串列進行，首次同步需要一點時間';
+
+  @override
+  String get libraryStepWatchLater => '稍後觀看';
+
+  @override
+  String get libraryStepFavorites => '喜歡的影片';
+
+  @override
+  String get libraryStepPlaylists => '播放清單';
+
+  @override
+  String get libraryStepHistory => '觀看歷史';
+
+  @override
+  String get libraryStepSubscriptions => '我的訂閱';
 }

@@ -3331,6 +3331,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Completed, but {count} item(s) failed'**
   String operationPartialFailure(int count);
+
+  /// No description provided for @librarySyncTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Syncing cloud library'**
+  String get librarySyncTitle;
+
+  /// No description provided for @librarySyncStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Fetching {step} ({current}/{total})…'**
+  String librarySyncStep(String step, int current, int total);
+
+  /// No description provided for @librarySyncHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests are staggered to avoid site rate limits, first sync may take a moment'**
+  String get librarySyncHint;
+
+  /// No description provided for @libraryStepWatchLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch Later'**
+  String get libraryStepWatchLater;
+
+  /// No description provided for @libraryStepFavorites.
+  ///
+  /// In en, this message translates to:
+  /// **'Favorites'**
+  String get libraryStepFavorites;
+
+  /// No description provided for @libraryStepPlaylists.
+  ///
+  /// In en, this message translates to:
+  /// **'Playlists'**
+  String get libraryStepPlaylists;
+
+  /// No description provided for @libraryStepHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch History'**
+  String get libraryStepHistory;
+
+  /// No description provided for @libraryStepSubscriptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Subscriptions'**
+  String get libraryStepSubscriptions;
 }
 
 class _AppLocalizationsDelegate

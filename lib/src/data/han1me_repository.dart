@@ -64,7 +64,7 @@ class Han1meRepository {
   Future<Account> account(String baseUrl) => _merge('account:$baseUrl', () => _api.account(baseUrl));
   Future<void> updateProfile(String baseUrl, String id, String token, String name, String email) => _api.updateProfile(baseUrl, id, token, name, email);
   Future<void> updatePassword(String baseUrl, String id, String token, String oldPassword, String password, String confirmation) => _api.updatePassword(baseUrl, id, token, oldPassword, password, confirmation);
-  Future<RemoteLibrary> library(String baseUrl, String id) => _merge('library:$baseUrl:$id', () => _api.library(baseUrl, id));
+  Future<RemoteLibrary> library(String baseUrl, String id, {void Function(int step)? onStep}) => _merge('library:$baseUrl:$id', () => _api.library(baseUrl, id, onStep: onStep));
   Future<void> saveToPlaylist(String baseUrl, String token, String listId, String videoId, bool checked) => _api.saveToPlaylist(baseUrl, token, listId, videoId, checked);
   Future<void> setSubscription(String baseUrl, String token, String userId, String artistId, bool enabled) => _api.setSubscription(baseUrl, token, userId, artistId, enabled);
   Future<void> createPlaylist(String baseUrl, String token, String videoId, String title, String description) => _api.createPlaylist(baseUrl, token, videoId, title, description);

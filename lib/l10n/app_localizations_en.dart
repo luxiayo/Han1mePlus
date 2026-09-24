@@ -1796,4 +1796,31 @@ class AppLocalizationsEn extends AppLocalizations {
   String operationPartialFailure(int count) {
     return 'Completed, but $count item(s) failed';
   }
+
+  @override
+  String get librarySyncTitle => 'Syncing cloud library';
+
+  @override
+  String librarySyncStep(String step, int current, int total) {
+    return 'Fetching $step ($current/$total)…';
+  }
+
+  @override
+  String get librarySyncHint =>
+      'Requests are staggered to avoid site rate limits, first sync may take a moment';
+
+  @override
+  String get libraryStepWatchLater => 'Watch Later';
+
+  @override
+  String get libraryStepFavorites => 'Favorites';
+
+  @override
+  String get libraryStepPlaylists => 'Playlists';
+
+  @override
+  String get libraryStepHistory => 'Watch History';
+
+  @override
+  String get libraryStepSubscriptions => 'Subscriptions';
 }

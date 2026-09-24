@@ -86,8 +86,29 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
   }
 }
 
+/// 收藏库同步加载视图：加载动画 + 分步进度 + 预期提示（首次同步请求多、耗时长）。
+Widget _libraryLoading(BuildContext context, WidgetRef ref) {
+  final l10n = AppLocalizations.of(context)!;
+  final step = ref.watch(librarySyncStepProvider);
+  const total = 5;
+  final labels = [l10n.libraryStepWatchLater, l10n.libraryStepFavorites, l10n.libraryStepPlaylists, l10n.libraryStepHistory, l10n.libraryStepSubscriptions];
+  return Center(
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      const M3EContainedLoadingIndicator(),
+      const SizedBox(height: 16),
+      Text(step >= 0 && step < total ? l10n.librarySyncStep(labels[step], step + 1, total) : l10n.librarySyncTitle, style: Theme.of(context).textTheme.bodyMedium),
+      const SizedBox(height: 4),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Text(l10n.librarySyncHint, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      ),
+    ]),
+  );
+}
+
 class _RemoteLibrary extends ConsumerWidget {
   const _RemoteLibrary({required this.initialTab, required this.drawerMode});
+
 
   final int initialTab;
   final bool drawerMode;
@@ -101,7 +122,7 @@ class _RemoteLibrary extends ConsumerWidget {
         appBar: AppBar(leading: permanentNavigationDrawer(context) ? null : IconButton(onPressed: openAppDrawer, icon: const Icon(Icons.menu)), title: Text(_tabTitle(l10n, initialTab))),
         body: ref.watch(remoteLibraryProvider).when(
           skipLoadingOnRefresh: true,
-          loading: () => const Center(child: M3EContainedLoadingIndicator()),
+          loading: () => _libraryLoading(context, ref),
           error: (error, stackTrace) => _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
           data: (library) => _remoteTabContent(context, ref, library, initialTab, account?.csrfToken),
         ),
@@ -115,7 +136,7 @@ class _RemoteLibrary extends ConsumerWidget {
           appBar: AppBar(leading: ref.watch(settingsProvider).valueOrNull?.useNavigationDrawer ?? false ? (permanentNavigationDrawer(context) ? null : IconButton(onPressed: openAppDrawer, icon: const Icon(Icons.menu))) : null, title: Text(l10n.myLibrary), bottom: TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: _tabs(l10n))),
               body: ref.watch(remoteLibraryProvider).when(
                     skipLoadingOnRefresh: true,
-                    loading: () => const Center(child: M3EContainedLoadingIndicator()),
+                    loading: () => _libraryLoading(context, ref),
                     error: (error, stackTrace) => _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
                     data: (library) => TabBarView(children: [for (var index = 0; index < 5; index++) _remoteTabContent(context, ref, library, index, account?.csrfToken)]),
                   ),

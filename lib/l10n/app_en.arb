@@ -849,5 +849,26 @@
         "type": "int"
       }
     }
-  }
+  },
+  "librarySyncTitle": "Syncing cloud library",
+  "librarySyncStep": "Fetching {step} ({current}/{total})…",
+  "@librarySyncStep": {
+    "placeholders": {
+      "step": {
+        "type": "String"
+      },
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "librarySyncHint": "Requests are staggered to avoid site rate limits, first sync may take a moment",
+  "libraryStepWatchLater": "Watch Later",
+  "libraryStepFavorites": "Favorites",
+  "libraryStepPlaylists": "Playlists",
+  "libraryStepHistory": "Watch History",
+  "libraryStepSubscriptions": "Subscriptions"
 }

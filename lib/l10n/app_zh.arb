@@ -849,5 +849,26 @@
         "type": "int"
       }
     }
-  }
+  },
+  "librarySyncTitle": "正在同步云端收藏",
+  "librarySyncStep": "正在获取 {step}（{current}/{total}）…",
+  "@librarySyncStep": {
+    "placeholders": {
+      "step": {
+        "type": "String"
+      },
+      "current": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "librarySyncHint": "为避免站点限流，请求分步串行进行，首次同步需要一点时间",
+  "libraryStepWatchLater": "稍后再看",
+  "libraryStepFavorites": "喜欢的影片",
+  "libraryStepPlaylists": "播放清单",
+  "libraryStepHistory": "观看历史",
+  "libraryStepSubscriptions": "我的订阅"
 }
