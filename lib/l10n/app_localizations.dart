@@ -3428,12 +3428,6 @@ abstract class AppLocalizations {
   /// **'Playback speed ±0.25'**
   String get shortcutSpeedStep;
 
-  /// No description provided for @shortcutSeek10.
-  ///
-  /// In en, this message translates to:
-  /// **'Back / Forward 10 seconds'**
-  String get shortcutSeek10;
-
   /// No description provided for @shortcutSpeedBoostHold.
   ///
   /// In en, this message translates to:
@@ -3481,6 +3475,72 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Next episode'**
   String get shortcutNextEpisode;
+
+  /// No description provided for @shortcutMasterToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable keyboard shortcuts'**
+  String get shortcutMasterToggle;
+
+  /// No description provided for @shortcutMasterSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When off, the player only responds to media keys'**
+  String get shortcutMasterSubtitle;
+
+  /// No description provided for @shortcutPressKey.
+  ///
+  /// In en, this message translates to:
+  /// **'Press the new key'**
+  String get shortcutPressKey;
+
+  /// No description provided for @shortcutEscCancel.
+  ///
+  /// In en, this message translates to:
+  /// **'ESC to cancel'**
+  String get shortcutEscCancel;
+
+  /// No description provided for @shortcutCurrentBinding.
+  ///
+  /// In en, this message translates to:
+  /// **'Current binding'**
+  String get shortcutCurrentBinding;
+
+  /// No description provided for @shortcutDefaultBinding.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get shortcutDefaultBinding;
+
+  /// No description provided for @shortcutResetDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset to default'**
+  String get shortcutResetDefault;
+
+  /// No description provided for @shortcutModifierHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Modifier keys can\'t be used alone'**
+  String get shortcutModifierHint;
+
+  /// No description provided for @shortcutSeekBack.
+  ///
+  /// In en, this message translates to:
+  /// **'Back 10 seconds'**
+  String get shortcutSeekBack;
+
+  /// No description provided for @shortcutSeekForward.
+  ///
+  /// In en, this message translates to:
+  /// **'Forward 10 seconds'**
+  String get shortcutSeekForward;
+
+  /// No description provided for @shortcutConflictWith.
+  ///
+  /// In en, this message translates to:
+  /// **'{key} is already used by \"{name}\"'**
+  String shortcutConflictWith(String key, String name);
 }
 
 class _AppLocalizationsDelegate

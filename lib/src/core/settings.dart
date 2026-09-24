@@ -114,6 +114,8 @@ class AppSettings {
     this.videoAspectRatio = VideoAspectRatio.auto,
     this.skipSeconds = 80,
     this.disabledShortcuts = const <String>[],
+    this.keyboardShortcutsEnabled = true,
+    this.shortcutKeys = const <String, String>{},
     this.webDavEnabled = false,
     this.webDavHistorySync = false,
     this.webDavFavoriteSync = false,
@@ -193,6 +195,12 @@ class AppSettings {
 
   /// 已禁用的播放器快捷键（PlayerShortcutAction.name 列表），空 = 全部启用。
   final List<String> disabledShortcuts;
+
+  /// 总开关：关闭后播放器忽略除媒体键外的所有键盘快捷键。
+  final bool keyboardShortcutsEnabled;
+
+  /// 自定义键位映射：动作名 → LogicalKeyboardKey.keyId 字符串。
+  final Map<String, String> shortcutKeys;
   final bool webDavEnabled;
   final bool webDavHistorySync;
   final bool webDavFavoriteSync;
@@ -290,6 +298,8 @@ class AppSettings {
         'videoAspectRatio': videoAspectRatio.name,
         'skipSeconds': skipSeconds,
         'disabledShortcuts': disabledShortcuts,
+        'keyboardShortcutsEnabled': keyboardShortcutsEnabled,
+        'shortcutKeys': shortcutKeys,
         'webDavEnabled': webDavEnabled,
         'webDavHistorySync': webDavHistorySync,
         'webDavFavoriteSync': webDavFavoriteSync,
@@ -368,6 +378,8 @@ class AppSettings {
         videoAspectRatio: _enumByName(VideoAspectRatio.values, json['videoAspectRatio'] as String?) ?? VideoAspectRatio.auto,
         skipSeconds: (json['skipSeconds'] as int? ?? 80).clamp(1, 3600),
         disabledShortcuts: (json['disabledShortcuts'] as List? ?? const []).whereType<String>().toList(),
+        keyboardShortcutsEnabled: json['keyboardShortcutsEnabled'] as bool? ?? true,
+        shortcutKeys: (json['shortcutKeys'] as Map? ?? const {}).map((key, value) => MapEntry(key as String, value as String)),
         webDavEnabled: json['webDavEnabled'] as bool? ?? false,
         webDavHistorySync: json['webDavHistorySync'] as bool? ?? false,
         webDavFavoriteSync: json['webDavFavoriteSync'] as bool? ?? false,
@@ -491,6 +503,8 @@ class AppSettings {
     VideoAspectRatio? videoAspectRatio,
     int? skipSeconds,
     List<String>? disabledShortcuts,
+    bool? keyboardShortcutsEnabled,
+    Map<String, String>? shortcutKeys,
     bool? webDavEnabled,
     bool? webDavHistorySync,
     bool? webDavFavoriteSync,
@@ -568,6 +582,8 @@ class AppSettings {
         videoAspectRatio: videoAspectRatio ?? this.videoAspectRatio,
         skipSeconds: skipSeconds ?? this.skipSeconds,
         disabledShortcuts: disabledShortcuts ?? this.disabledShortcuts,
+        keyboardShortcutsEnabled: keyboardShortcutsEnabled ?? this.keyboardShortcutsEnabled,
+        shortcutKeys: shortcutKeys ?? this.shortcutKeys,
         webDavEnabled: webDavEnabled ?? this.webDavEnabled,
         webDavHistorySync: webDavHistorySync ?? this.webDavHistorySync,
         webDavFavoriteSync: webDavFavoriteSync ?? this.webDavFavoriteSync,

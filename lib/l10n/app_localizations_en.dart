@@ -1850,9 +1850,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shortcutSpeedStep => 'Playback speed ±0.25';
 
   @override
-  String get shortcutSeek10 => 'Back / Forward 10 seconds';
-
-  @override
   String get shortcutSpeedBoostHold => 'Hold → for speed boost';
 
   @override
@@ -1875,4 +1872,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shortcutNextEpisode => 'Next episode';
+
+  @override
+  String get shortcutMasterToggle => 'Enable keyboard shortcuts';
+
+  @override
+  String get shortcutMasterSubtitle =>
+      'When off, the player only responds to media keys';
+
+  @override
+  String get shortcutPressKey => 'Press the new key';
+
+  @override
+  String get shortcutEscCancel => 'ESC to cancel';
+
+  @override
+  String get shortcutCurrentBinding => 'Current binding';
+
+  @override
+  String get shortcutDefaultBinding => 'Default';
+
+  @override
+  String get shortcutResetDefault => 'Reset to default';
+
+  @override
+  String get shortcutModifierHint => 'Modifier keys can\'t be used alone';
+
+  @override
+  String get shortcutSeekBack => 'Back 10 seconds';
+
+  @override
+  String get shortcutSeekForward => 'Forward 10 seconds';
+
+  @override
+  String shortcutConflictWith(String key, String name) {
+    return '$key is already used by \"$name\"';
+  }
 }

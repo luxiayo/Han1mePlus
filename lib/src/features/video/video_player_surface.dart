@@ -130,15 +130,13 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
     _restartTimer();
   }
 
-  bool _shortcutEnabled(PlayerShortcutAction action) {
-    final disabled = ref.read(settingsProvider).valueOrNull?.disabledShortcuts;
-    return disabled == null || !disabled.contains(action.name);
-  }
-
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (!isDesktopHttpPlatform) return KeyEventResult.ignored;
+    final settings = ref.read(settingsProvider).valueOrNull ?? const AppSettings();
+    // KeyUp：结束倍速长按（键位取当前生效的快进长按主键）。
     if (event is KeyUpEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.arrowRight && (_speedBoostTimer != null || _speedBeforeKeyBoost != null)) {
+      final boostKey = PlayerShortcutBinding.customKey(settings.shortcutKeys, PlayerShortcutAction.speedBoostHold) ?? LogicalKeyboardKey.arrowRight;
+      if (event.logicalKey == boostKey && (_speedBoostTimer != null || _speedBeforeKeyBoost != null)) {
         final wasPending = _speedBoostTimer != null;
         _endKeySpeedBoost();
         final controller = widget.controller.value;
@@ -155,30 +153,46 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
     if (controller == null || !controller.value.isInitialized) return KeyEventResult.ignored;
     final key = event.logicalKey;
     final isDown = event is KeyDownEvent;
-    // J / L：与 ← / → 相同的后退/前进（YouTube 风格）。
+    final master = settings.keyboardShortcutsEnabled;
+    bool enabled(PlayerShortcutAction action) => master && !settings.disabledShortcuts.contains(action.name);
+    LogicalKeyboardKey? custom(PlayerShortcutAction action) => PlayerShortcutBinding.customKey(settings.shortcutKeys, action);
+    // 媒体键不受总开关与单条开关限制。
+    const mediaKeys = [LogicalKeyboardKey.mediaPlayPause, LogicalKeyboardKey.mediaPlay, LogicalKeyboardKey.mediaPause];
+    if (mediaKeys.contains(key)) {
+      _togglePlayback();
+      return KeyEventResult.handled;
+    }
+    if (!master) return KeyEventResult.ignored;
+    final boostKey = custom(PlayerShortcutAction.speedBoostHold) ?? LogicalKeyboardKey.arrowRight;
+    // J / L：固定附加键，始终后退/前进。
     if (key == LogicalKeyboardKey.keyJ || key == LogicalKeyboardKey.keyL) {
-      if (_shortcutEnabled(PlayerShortcutAction.seek10)) _keyboardSeek(controller, key == LogicalKeyboardKey.keyL ? 1 : -1);
+      if (enabled(PlayerShortcutAction.seekBack) || enabled(PlayerShortcutAction.seekForward)) _keyboardSeek(controller, key == LogicalKeyboardKey.keyL ? 1 : -1);
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowLeft || key == LogicalKeyboardKey.arrowRight) {
       // Shift + 方向：按跳过按钮的时长跳过。
       if (HardwareKeyboard.instance.isShiftPressed) {
-        if (isDown && _shortcutEnabled(PlayerShortcutAction.skip)) _keyboardSkip(controller, key == LogicalKeyboardKey.arrowRight ? 1 : -1);
+        if (isDown && enabled(PlayerShortcutAction.skip)) _keyboardSkip(controller, key == LogicalKeyboardKey.arrowRight ? 1 : -1);
         return KeyEventResult.handled;
       }
-      if (key == LogicalKeyboardKey.arrowRight) {
-        if (_shortcutEnabled(PlayerShortcutAction.speedBoostHold)) {
-          if (isDown) _startKeySpeedBoost(controller);
-        } else if (_shortcutEnabled(PlayerShortcutAction.seek10)) {
-          _keyboardSeek(controller, 1);
-        }
+      if (key == boostKey && enabled(PlayerShortcutAction.speedBoostHold)) {
+        if (isDown) _startKeySpeedBoost(controller);
         return KeyEventResult.handled;
       }
-      if (_shortcutEnabled(PlayerShortcutAction.seek10)) _keyboardSeek(controller, -1);
+      final forwardKey = custom(PlayerShortcutAction.seekForward) ?? LogicalKeyboardKey.arrowRight;
+      if (key == forwardKey && enabled(PlayerShortcutAction.seekForward)) {
+        _keyboardSeek(controller, 1);
+        return KeyEventResult.handled;
+      }
+      final backKey = custom(PlayerShortcutAction.seekBack) ?? LogicalKeyboardKey.arrowLeft;
+      if (key == backKey && enabled(PlayerShortcutAction.seekBack)) {
+        _keyboardSeek(controller, -1);
+        return KeyEventResult.handled;
+      }
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowUp || key == LogicalKeyboardKey.arrowDown) {
-      if (_shortcutEnabled(PlayerShortcutAction.volume)) {
+      if (enabled(PlayerShortcutAction.volume)) {
         final delta = key == LogicalKeyboardKey.arrowUp ? _keyboardVolumeStep : -_keyboardVolumeStep;
         final volume = (_volume + delta).clamp(0.0, 1.0).toDouble();
         _volume = volume;
@@ -188,12 +202,13 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
       }
       return KeyEventResult.handled;
     }
-    if (isDown && key == LogicalKeyboardKey.keyM && _shortcutEnabled(PlayerShortcutAction.mute)) {
+    final muteKey = custom(PlayerShortcutAction.mute) ?? LogicalKeyboardKey.keyM;
+    if (isDown && key == muteKey && enabled(PlayerShortcutAction.mute)) {
       _toggleMute(controller);
       _restartTimer();
       return KeyEventResult.handled;
     }
-    if (isDown && (key == LogicalKeyboardKey.equal || key == LogicalKeyboardKey.add || key == LogicalKeyboardKey.numpadAdd || key == LogicalKeyboardKey.minus || key == LogicalKeyboardKey.numpadSubtract) && _shortcutEnabled(PlayerShortcutAction.speedStep)) {
+    if (isDown && (key == LogicalKeyboardKey.equal || key == LogicalKeyboardKey.add || key == LogicalKeyboardKey.numpadAdd || key == LogicalKeyboardKey.minus || key == LogicalKeyboardKey.numpadSubtract) && enabled(PlayerShortcutAction.speedStep)) {
       final up = key == LogicalKeyboardKey.equal || key == LogicalKeyboardKey.add || key == LogicalKeyboardKey.numpadAdd;
       final next = (controller.value.playbackSpeed + (up ? .25 : -.25)).clamp(.25, 4.0).toDouble();
       unawaited(_applySpeed(controller, next));
@@ -202,7 +217,7 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
       _restartTimer();
       return KeyEventResult.handled;
     }
-    if (isDown && _shortcutEnabled(PlayerShortcutAction.jumpPercent)) {
+    if (isDown && enabled(PlayerShortcutAction.jumpPercent)) {
       final digit = int.tryParse(key.keyLabel);
       if (digit != null && controller.value.duration > Duration.zero) {
         // 数字 n 跳到 10n% 位置（时长 × n ÷ 10）。
@@ -213,7 +228,7 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
         return KeyEventResult.handled;
       }
     }
-    if (isDown && (key == LogicalKeyboardKey.home || key == LogicalKeyboardKey.end) && _shortcutEnabled(PlayerShortcutAction.jumpStartEnd)) {
+    if (isDown && (key == LogicalKeyboardKey.home || key == LogicalKeyboardKey.end) && enabled(PlayerShortcutAction.jumpStartEnd)) {
       final duration = controller.value.duration;
       if (duration > Duration.zero) {
         if (key == LogicalKeyboardKey.home) {
@@ -227,23 +242,27 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
         return KeyEventResult.handled;
       }
     }
-    if (isDown && key == LogicalKeyboardKey.keyF && _shortcutEnabled(PlayerShortcutAction.fullscreen)) {
+    final fullscreenKey = custom(PlayerShortcutAction.fullscreen) ?? LogicalKeyboardKey.keyF;
+    if (isDown && key == fullscreenKey && enabled(PlayerShortcutAction.fullscreen)) {
       unawaited(widget.onFullscreen());
       _restartTimer();
       return KeyEventResult.handled;
     }
     // Q 键回主页：ESC 在 macOS 上会被系统/菜单消费导致不可靠，Q 无此问题。
-    if (isDown && key == LogicalKeyboardKey.keyQ && widget.onHome != null && _shortcutEnabled(PlayerShortcutAction.home)) {
+    final homeKey = custom(PlayerShortcutAction.home) ?? LogicalKeyboardKey.keyQ;
+    if (isDown && key == homeKey && widget.onHome != null && enabled(PlayerShortcutAction.home)) {
       widget.onHome!();
       return KeyEventResult.handled;
     }
-    if (isDown && key == LogicalKeyboardKey.keyN && widget.onNext != null && _shortcutEnabled(PlayerShortcutAction.nextEpisode)) {
+    final nextEpisodeKey = custom(PlayerShortcutAction.nextEpisode) ?? LogicalKeyboardKey.keyN;
+    if (isDown && key == nextEpisodeKey && widget.onNext != null && enabled(PlayerShortcutAction.nextEpisode)) {
       widget.onNext!();
       return KeyEventResult.handled;
     }
-    const playbackKeys = [LogicalKeyboardKey.space, LogicalKeyboardKey.enter, LogicalKeyboardKey.numpadEnter, LogicalKeyboardKey.mediaPlayPause, LogicalKeyboardKey.mediaPlay, LogicalKeyboardKey.mediaPause, LogicalKeyboardKey.keyK];
-    if (playbackKeys.contains(key)) {
-      if (_shortcutEnabled(PlayerShortcutAction.playPause)) _togglePlayback();
+    final playPauseKey = custom(PlayerShortcutAction.playPause) ?? LogicalKeyboardKey.space;
+    const playPauseExtras = [LogicalKeyboardKey.enter, LogicalKeyboardKey.numpadEnter, LogicalKeyboardKey.keyK];
+    if (key == playPauseKey || playPauseExtras.contains(key)) {
+      if (enabled(PlayerShortcutAction.playPause)) _togglePlayback();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;

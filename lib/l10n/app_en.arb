@@ -879,7 +879,6 @@
   "shortcutPlayPause": "Play / Pause",
   "shortcutMute": "Mute / Unmute",
   "shortcutSpeedStep": "Playback speed ±0.25",
-  "shortcutSeek10": "Back / Forward 10 seconds",
   "shortcutSpeedBoostHold": "Hold → for speed boost",
   "shortcutSkip": "Skip (follows skip button duration)",
   "shortcutVolume": "Volume up / down",
@@ -887,5 +886,26 @@
   "shortcutJumpStartEnd": "Jump to start / near end",
   "shortcutFullscreen": "Toggle fullscreen",
   "shortcutHome": "Back to home",
-  "shortcutNextEpisode": "Next episode"
+  "shortcutNextEpisode": "Next episode",
+  "shortcutMasterToggle": "Enable keyboard shortcuts",
+  "shortcutMasterSubtitle": "When off, the player only responds to media keys",
+  "shortcutPressKey": "Press the new key",
+  "shortcutEscCancel": "ESC to cancel",
+  "shortcutCurrentBinding": "Current binding",
+  "shortcutDefaultBinding": "Default",
+  "shortcutResetDefault": "Reset to default",
+  "shortcutModifierHint": "Modifier keys can't be used alone",
+  "shortcutSeekBack": "Back 10 seconds",
+  "shortcutSeekForward": "Forward 10 seconds",
+  "shortcutConflictWith": "{key} is already used by \"{name}\"",
+  "@shortcutConflictWith": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }

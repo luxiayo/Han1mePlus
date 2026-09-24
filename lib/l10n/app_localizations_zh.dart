@@ -1788,9 +1788,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get shortcutSpeedStep => '播放速度 ±0.25';
 
   @override
-  String get shortcutSeek10 => '后退 / 前进 10 秒';
-
-  @override
   String get shortcutSpeedBoostHold => '长按 → 倍速快进';
 
   @override
@@ -1813,6 +1810,41 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get shortcutNextEpisode => '下一集';
+
+  @override
+  String get shortcutMasterToggle => '启用键盘快捷键';
+
+  @override
+  String get shortcutMasterSubtitle => '关闭后播放器仅响应媒体键';
+
+  @override
+  String get shortcutPressKey => '按下新的按键';
+
+  @override
+  String get shortcutEscCancel => '按 ESC 取消';
+
+  @override
+  String get shortcutCurrentBinding => '当前键位';
+
+  @override
+  String get shortcutDefaultBinding => '默认';
+
+  @override
+  String get shortcutResetDefault => '恢复默认';
+
+  @override
+  String get shortcutModifierHint => '修饰键不能单独作为快捷键';
+
+  @override
+  String get shortcutSeekBack => '后退 10 秒';
+
+  @override
+  String get shortcutSeekForward => '前进 10 秒';
+
+  @override
+  String shortcutConflictWith(String key, String name) {
+    return '$key 已被「$name」占用';
+  }
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -3599,9 +3631,6 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
   String get shortcutSpeedStep => '播放速度 ±0.25';
 
   @override
-  String get shortcutSeek10 => '後退 / 前進 10 秒';
-
-  @override
   String get shortcutSpeedBoostHold => '長按 → 倍速快進';
 
   @override
@@ -3624,4 +3653,39 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get shortcutNextEpisode => '下一集';
+
+  @override
+  String get shortcutMasterToggle => '啟用鍵盤快速鍵';
+
+  @override
+  String get shortcutMasterSubtitle => '關閉後播放器僅響應媒體鍵';
+
+  @override
+  String get shortcutPressKey => '按下新的按鍵';
+
+  @override
+  String get shortcutEscCancel => '按 ESC 取消';
+
+  @override
+  String get shortcutCurrentBinding => '目前鍵位';
+
+  @override
+  String get shortcutDefaultBinding => '預設';
+
+  @override
+  String get shortcutResetDefault => '恢復預設';
+
+  @override
+  String get shortcutModifierHint => '修飾鍵不能單獨作為快速鍵';
+
+  @override
+  String get shortcutSeekBack => '後退 10 秒';
+
+  @override
+  String get shortcutSeekForward => '前進 10 秒';
+
+  @override
+  String shortcutConflictWith(String key, String name) {
+    return '$key 已被「$name」佔用';
+  }
 }

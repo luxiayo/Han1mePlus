@@ -879,7 +879,6 @@
   "shortcutPlayPause": "播放 / 暫停",
   "shortcutMute": "靜音切換",
   "shortcutSpeedStep": "播放速度 ±0.25",
-  "shortcutSeek10": "後退 / 前進 10 秒",
   "shortcutSpeedBoostHold": "長按 → 倍速快進",
   "shortcutSkip": "按跳過按鈕的時長跳過",
   "shortcutVolume": "音量加減",
@@ -887,5 +886,26 @@
   "shortcutJumpStartEnd": "跳到片頭 / 片尾",
   "shortcutFullscreen": "全螢幕切換",
   "shortcutHome": "返回主頁",
-  "shortcutNextEpisode": "下一集"
+  "shortcutNextEpisode": "下一集",
+  "shortcutMasterToggle": "啟用鍵盤快速鍵",
+  "shortcutMasterSubtitle": "關閉後播放器僅響應媒體鍵",
+  "shortcutPressKey": "按下新的按鍵",
+  "shortcutEscCancel": "按 ESC 取消",
+  "shortcutCurrentBinding": "目前鍵位",
+  "shortcutDefaultBinding": "預設",
+  "shortcutResetDefault": "恢復預設",
+  "shortcutModifierHint": "修飾鍵不能單獨作為快速鍵",
+  "shortcutSeekBack": "後退 10 秒",
+  "shortcutSeekForward": "前進 10 秒",
+  "shortcutConflictWith": "{key} 已被「{name}」佔用",
+  "@shortcutConflictWith": {
+    "placeholders": {
+      "key": {
+        "type": "String"
+      },
+      "name": {
+        "type": "String"
+      }
+    }
+  }
 }
