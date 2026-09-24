@@ -169,7 +169,8 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
       _restartTimer();
       return KeyEventResult.handled;
     }
-    if (event is KeyDownEvent && key == LogicalKeyboardKey.escape && widget.onHome != null) {
+    // Q 键回主页：ESC 在 macOS 上会被系统/菜单消费导致不可靠，Q 无此问题。
+    if (event is KeyDownEvent && key == LogicalKeyboardKey.keyQ && widget.onHome != null) {
       widget.onHome!();
       return KeyEventResult.handled;
     }
