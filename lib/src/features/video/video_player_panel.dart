@@ -391,6 +391,9 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
     try {
       if (isMac) {
         await DesktopFullScreen.toggle();
+        // 原生全屏期间 macOS 会吞掉 ESC，改为拦截后转交 Dart：退出路由并回主页。
+        await DesktopFullScreen.setEscapeIntercept(true);
+        DesktopFullScreen.onEscape = _handleFullscreenEscape;
       } else {
         await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
         if (lockLandscape) {
@@ -403,7 +406,10 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
       _fullscreenOpen = false;
       try {
         if (isMac) {
-          await DesktopFullScreen.toggle();
+          DesktopFullScreen.onEscape = null;
+          await DesktopFullScreen.setEscapeIntercept(false);
+          // 幂等退出：系统已先退出全屏（绿色按钮）时为空操作，不会二次进出。
+          await DesktopFullScreen.exitIfActive();
         } else {
           await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
           await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
@@ -423,6 +429,15 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
         }
       }
     }
+  }
+
+  // 原生全屏期间按下 ESC（Swift 拦截系统默认行为后转发）：
+  // 与全屏播放器的 onHome 一致——退出全屏路由并回到主页。
+  void _handleFullscreenEscape() {
+    if (!mounted) return;
+    Navigator.of(context).pop();
+    _disposeActiveController();
+    widget.onHome?.call();
   }
 
   // 全屏切换时窗口尺寸动画会触发播放内核重建视频输出，导致短暂暂停；
