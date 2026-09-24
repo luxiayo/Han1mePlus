@@ -205,7 +205,8 @@ class _VideoPlayerSurfaceState extends ConsumerState<VideoPlayerSurface> {
     if (isDown && _shortcutEnabled(PlayerShortcutAction.jumpPercent)) {
       final digit = int.tryParse(key.keyLabel);
       if (digit != null && controller.value.duration > Duration.zero) {
-        final target = controller.value.duration * (digit * 10) ~/ 1000;
+        // 数字 n 跳到 10n% 位置（时长 × n ÷ 10）。
+        final target = controller.value.duration * digit ~/ 10;
         unawaited(controller.seekTo(target));
         _showAdjustment(_Adjustment.seek(target.inMilliseconds - controller.value.position.inMilliseconds, target, controller.value.duration));
         _restartTimer();
