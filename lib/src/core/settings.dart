@@ -113,6 +113,7 @@ class AppSettings {
     this.autoPictureInPicture = false,
     this.videoAspectRatio = VideoAspectRatio.auto,
     this.skipSeconds = 80,
+    this.disabledShortcuts = const <String>[],
     this.webDavEnabled = false,
     this.webDavHistorySync = false,
     this.webDavFavoriteSync = false,
@@ -189,6 +190,9 @@ class AppSettings {
   final bool autoPictureInPicture;
   final VideoAspectRatio videoAspectRatio;
   final int skipSeconds;
+
+  /// 已禁用的播放器快捷键（PlayerShortcutAction.name 列表），空 = 全部启用。
+  final List<String> disabledShortcuts;
   final bool webDavEnabled;
   final bool webDavHistorySync;
   final bool webDavFavoriteSync;
@@ -285,6 +289,7 @@ class AppSettings {
         'autoPictureInPicture': autoPictureInPicture,
         'videoAspectRatio': videoAspectRatio.name,
         'skipSeconds': skipSeconds,
+        'disabledShortcuts': disabledShortcuts,
         'webDavEnabled': webDavEnabled,
         'webDavHistorySync': webDavHistorySync,
         'webDavFavoriteSync': webDavFavoriteSync,
@@ -362,6 +367,7 @@ class AppSettings {
         autoPictureInPicture: json['autoPictureInPicture'] as bool? ?? false,
         videoAspectRatio: _enumByName(VideoAspectRatio.values, json['videoAspectRatio'] as String?) ?? VideoAspectRatio.auto,
         skipSeconds: (json['skipSeconds'] as int? ?? 80).clamp(1, 3600),
+        disabledShortcuts: (json['disabledShortcuts'] as List? ?? const []).whereType<String>().toList(),
         webDavEnabled: json['webDavEnabled'] as bool? ?? false,
         webDavHistorySync: json['webDavHistorySync'] as bool? ?? false,
         webDavFavoriteSync: json['webDavFavoriteSync'] as bool? ?? false,
@@ -484,6 +490,7 @@ class AppSettings {
     bool? autoPictureInPicture,
     VideoAspectRatio? videoAspectRatio,
     int? skipSeconds,
+    List<String>? disabledShortcuts,
     bool? webDavEnabled,
     bool? webDavHistorySync,
     bool? webDavFavoriteSync,
@@ -560,6 +567,7 @@ class AppSettings {
         autoPictureInPicture: autoPictureInPicture ?? this.autoPictureInPicture,
         videoAspectRatio: videoAspectRatio ?? this.videoAspectRatio,
         skipSeconds: skipSeconds ?? this.skipSeconds,
+        disabledShortcuts: disabledShortcuts ?? this.disabledShortcuts,
         webDavEnabled: webDavEnabled ?? this.webDavEnabled,
         webDavHistorySync: webDavHistorySync ?? this.webDavHistorySync,
         webDavFavoriteSync: webDavFavoriteSync ?? this.webDavFavoriteSync,

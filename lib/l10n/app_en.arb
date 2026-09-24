@@ -870,5 +870,22 @@
   "libraryStepFavorites": "Favorites",
   "libraryStepPlaylists": "Playlists",
   "libraryStepHistory": "Watch History",
-  "libraryStepSubscriptions": "Subscriptions"
+  "libraryStepSubscriptions": "Subscriptions",
+  "shortcutsSettings": "Shortcuts",
+  "shortcutGroupPlayback": "Playback",
+  "shortcutGroupProgress": "Progress & Volume",
+  "shortcutGroupNavigation": "Navigation",
+  "shortcutFooter": "Shortcuts work in the player on desktop only and pause while typing in text fields.",
+  "shortcutPlayPause": "Play / Pause",
+  "shortcutMute": "Mute / Unmute",
+  "shortcutSpeedStep": "Playback speed ±0.25",
+  "shortcutSeek10": "Back / Forward 10 seconds",
+  "shortcutSpeedBoostHold": "Hold → for speed boost",
+  "shortcutSkip": "Skip (follows skip button duration)",
+  "shortcutVolume": "Volume up / down",
+  "shortcutJumpPercent": "Jump to 0%–90%",
+  "shortcutJumpStartEnd": "Jump to start / near end",
+  "shortcutFullscreen": "Toggle fullscreen",
+  "shortcutHome": "Back to home",
+  "shortcutNextEpisode": "Next episode"
 }

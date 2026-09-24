@@ -38,6 +38,7 @@ import '../features/settings/player_settings_page.dart';
 import '../features/settings/privacy_settings_page.dart';
 import '../features/settings/recommendation_settings_page.dart';
 import '../features/settings/selection_settings_pages.dart';
+import '../features/settings/shortcuts_settings_page.dart';
 import '../features/settings/settings_page.dart';
 import '../features/settings/theme_settings_page.dart';
 import '../features/settings/webdav_settings_page.dart';
@@ -106,6 +107,7 @@ class AppRouter {
         GoRoute(path: '/settings/about', builder: (context, state) => const AboutPage()),
         GoRoute(path: '/settings/license', builder: (context, state) => const AppLicensePage()),
         GoRoute(path: '/settings/keyframes', builder: (context, state) => const KeyframesPage()),
+        GoRoute(path: '/settings/shortcuts', builder: (context, state) => const ShortcutsSettingsPage()),
         GoRoute(path: '/settings/playback', builder: (context, state) => const PlaybackSettingsPage()),
         GoRoute(path: '/settings/player', builder: (context, state) => const PlayerSettingsPage()),
         GoRoute(path: '/settings/privacy', builder: (context, state) => const PrivacySettingsPage()),

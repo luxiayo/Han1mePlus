@@ -870,5 +870,22 @@
   "libraryStepFavorites": "喜歡的影片",
   "libraryStepPlaylists": "播放清單",
   "libraryStepHistory": "觀看歷史",
-  "libraryStepSubscriptions": "我的訂閱"
+  "libraryStepSubscriptions": "我的訂閱",
+  "shortcutsSettings": "快速鍵",
+  "shortcutGroupPlayback": "播放",
+  "shortcutGroupProgress": "進度與音量",
+  "shortcutGroupNavigation": "導覽",
+  "shortcutFooter": "快速鍵僅在桌面端播放器內生效，輸入框聚焦時自動停用。",
+  "shortcutPlayPause": "播放 / 暫停",
+  "shortcutMute": "靜音切換",
+  "shortcutSpeedStep": "播放速度 ±0.25",
+  "shortcutSeek10": "後退 / 前進 10 秒",
+  "shortcutSpeedBoostHold": "長按 → 倍速快進",
+  "shortcutSkip": "按跳過按鈕的時長跳過",
+  "shortcutVolume": "音量加減",
+  "shortcutJumpPercent": "跳到 0%–90% 位置",
+  "shortcutJumpStartEnd": "跳到片頭 / 片尾",
+  "shortcutFullscreen": "全螢幕切換",
+  "shortcutHome": "返回主頁",
+  "shortcutNextEpisode": "下一集"
 }

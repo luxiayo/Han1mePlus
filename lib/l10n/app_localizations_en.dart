@@ -1823,4 +1823,56 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get libraryStepSubscriptions => 'Subscriptions';
+
+  @override
+  String get shortcutsSettings => 'Shortcuts';
+
+  @override
+  String get shortcutGroupPlayback => 'Playback';
+
+  @override
+  String get shortcutGroupProgress => 'Progress & Volume';
+
+  @override
+  String get shortcutGroupNavigation => 'Navigation';
+
+  @override
+  String get shortcutFooter =>
+      'Shortcuts work in the player on desktop only and pause while typing in text fields.';
+
+  @override
+  String get shortcutPlayPause => 'Play / Pause';
+
+  @override
+  String get shortcutMute => 'Mute / Unmute';
+
+  @override
+  String get shortcutSpeedStep => 'Playback speed ±0.25';
+
+  @override
+  String get shortcutSeek10 => 'Back / Forward 10 seconds';
+
+  @override
+  String get shortcutSpeedBoostHold => 'Hold → for speed boost';
+
+  @override
+  String get shortcutSkip => 'Skip (follows skip button duration)';
+
+  @override
+  String get shortcutVolume => 'Volume up / down';
+
+  @override
+  String get shortcutJumpPercent => 'Jump to 0%–90%';
+
+  @override
+  String get shortcutJumpStartEnd => 'Jump to start / near end';
+
+  @override
+  String get shortcutFullscreen => 'Toggle fullscreen';
+
+  @override
+  String get shortcutHome => 'Back to home';
+
+  @override
+  String get shortcutNextEpisode => 'Next episode';
 }

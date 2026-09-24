@@ -27,6 +27,7 @@ class SettingsPage extends ConsumerWidget {
           ]),
           SettingsSection(title: sectionTitle(l10n.playback), tiles: [
             _NavigationTile(icon: Icons.smart_display_outlined, title: l10n.playbackSettings, onTap: () => context.push('/settings/playback')).tile,
+            _NavigationTile(icon: Icons.keyboard_alt_outlined, title: l10n.shortcutsSettings, onTap: () => context.push('/settings/shortcuts')).tile,
           ]),
           SettingsSection(title: sectionTitle(l10n.network), tiles: [
             _NavigationTile(icon: Icons.language_outlined, title: l10n.networkSettings, onTap: () => context.push('/settings/network')).tile,

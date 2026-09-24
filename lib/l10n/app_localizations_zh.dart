@@ -1762,6 +1762,57 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get libraryStepSubscriptions => '我的订阅';
+
+  @override
+  String get shortcutsSettings => '快捷键';
+
+  @override
+  String get shortcutGroupPlayback => '播放';
+
+  @override
+  String get shortcutGroupProgress => '进度与音量';
+
+  @override
+  String get shortcutGroupNavigation => '导航';
+
+  @override
+  String get shortcutFooter => '快捷键仅在桌面端播放器内生效，输入框聚焦时自动停用。';
+
+  @override
+  String get shortcutPlayPause => '播放 / 暂停';
+
+  @override
+  String get shortcutMute => '静音切换';
+
+  @override
+  String get shortcutSpeedStep => '播放速度 ±0.25';
+
+  @override
+  String get shortcutSeek10 => '后退 / 前进 10 秒';
+
+  @override
+  String get shortcutSpeedBoostHold => '长按 → 倍速快进';
+
+  @override
+  String get shortcutSkip => '按跳过按钮的时长跳过';
+
+  @override
+  String get shortcutVolume => '音量加减';
+
+  @override
+  String get shortcutJumpPercent => '跳转到 0%–90% 位置';
+
+  @override
+  String get shortcutJumpStartEnd => '跳到片头 / 片尾';
+
+  @override
+  String get shortcutFullscreen => '全屏切换';
+
+  @override
+  String get shortcutHome => '返回主页';
+
+  @override
+  String get shortcutNextEpisode => '下一集';
 }
 
 /// The translations for Chinese, as used in Taiwan (`zh_TW`).
@@ -3522,4 +3573,55 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get libraryStepSubscriptions => '我的訂閱';
+
+  @override
+  String get shortcutsSettings => '快速鍵';
+
+  @override
+  String get shortcutGroupPlayback => '播放';
+
+  @override
+  String get shortcutGroupProgress => '進度與音量';
+
+  @override
+  String get shortcutGroupNavigation => '導覽';
+
+  @override
+  String get shortcutFooter => '快速鍵僅在桌面端播放器內生效，輸入框聚焦時自動停用。';
+
+  @override
+  String get shortcutPlayPause => '播放 / 暫停';
+
+  @override
+  String get shortcutMute => '靜音切換';
+
+  @override
+  String get shortcutSpeedStep => '播放速度 ±0.25';
+
+  @override
+  String get shortcutSeek10 => '後退 / 前進 10 秒';
+
+  @override
+  String get shortcutSpeedBoostHold => '長按 → 倍速快進';
+
+  @override
+  String get shortcutSkip => '按跳過按鈕的時長跳過';
+
+  @override
+  String get shortcutVolume => '音量加減';
+
+  @override
+  String get shortcutJumpPercent => '跳到 0%–90% 位置';
+
+  @override
+  String get shortcutJumpStartEnd => '跳到片頭 / 片尾';
+
+  @override
+  String get shortcutFullscreen => '全螢幕切換';
+
+  @override
+  String get shortcutHome => '返回主頁';
+
+  @override
+  String get shortcutNextEpisode => '下一集';
 }

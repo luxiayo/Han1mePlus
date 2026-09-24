@@ -3379,6 +3379,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Subscriptions'**
   String get libraryStepSubscriptions;
+
+  /// No description provided for @shortcutsSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Shortcuts'**
+  String get shortcutsSettings;
+
+  /// No description provided for @shortcutGroupPlayback.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback'**
+  String get shortcutGroupPlayback;
+
+  /// No description provided for @shortcutGroupProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Progress & Volume'**
+  String get shortcutGroupProgress;
+
+  /// No description provided for @shortcutGroupNavigation.
+  ///
+  /// In en, this message translates to:
+  /// **'Navigation'**
+  String get shortcutGroupNavigation;
+
+  /// No description provided for @shortcutFooter.
+  ///
+  /// In en, this message translates to:
+  /// **'Shortcuts work in the player on desktop only and pause while typing in text fields.'**
+  String get shortcutFooter;
+
+  /// No description provided for @shortcutPlayPause.
+  ///
+  /// In en, this message translates to:
+  /// **'Play / Pause'**
+  String get shortcutPlayPause;
+
+  /// No description provided for @shortcutMute.
+  ///
+  /// In en, this message translates to:
+  /// **'Mute / Unmute'**
+  String get shortcutMute;
+
+  /// No description provided for @shortcutSpeedStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Playback speed ±0.25'**
+  String get shortcutSpeedStep;
+
+  /// No description provided for @shortcutSeek10.
+  ///
+  /// In en, this message translates to:
+  /// **'Back / Forward 10 seconds'**
+  String get shortcutSeek10;
+
+  /// No description provided for @shortcutSpeedBoostHold.
+  ///
+  /// In en, this message translates to:
+  /// **'Hold → for speed boost'**
+  String get shortcutSpeedBoostHold;
+
+  /// No description provided for @shortcutSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip (follows skip button duration)'**
+  String get shortcutSkip;
+
+  /// No description provided for @shortcutVolume.
+  ///
+  /// In en, this message translates to:
+  /// **'Volume up / down'**
+  String get shortcutVolume;
+
+  /// No description provided for @shortcutJumpPercent.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to 0%–90%'**
+  String get shortcutJumpPercent;
+
+  /// No description provided for @shortcutJumpStartEnd.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump to start / near end'**
+  String get shortcutJumpStartEnd;
+
+  /// No description provided for @shortcutFullscreen.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle fullscreen'**
+  String get shortcutFullscreen;
+
+  /// No description provided for @shortcutHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Back to home'**
+  String get shortcutHome;
+
+  /// No description provided for @shortcutNextEpisode.
+  ///
+  /// In en, this message translates to:
+  /// **'Next episode'**
+  String get shortcutNextEpisode;
 }
 
 class _AppLocalizationsDelegate
