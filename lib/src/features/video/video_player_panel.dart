@@ -55,6 +55,9 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
   var _autoNextTriggered = false;
   var _loopSeekPending = false;
   bool? _wasPlaying;
+  // 最近一次"播放→暂停"时刻：全屏过渡动画造成的意外暂停恢复播放用，
+  // 用户更早主动暂停的（距今超过阈值）不再被误恢复。
+  DateTime _lastPausedAt = DateTime.fromMillisecondsSinceEpoch(0);
   Duration _watched = Duration.zero;
   DateTime? _lastWatchedAt;
   late final WatchController _watchController;
@@ -337,7 +340,11 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
     _lastWatchedAt = value.isPlaying ? now : null;
     if (_wasPlaying != value.isPlaying) {
       _wasPlaying = value.isPlaying;
-      if (value.isPlaying) unawaited(VideoPlayerShutdown.pauseAllExcept(controller));
+      if (value.isPlaying) {
+        unawaited(VideoPlayerShutdown.pauseAllExcept(controller));
+      } else {
+        _lastPausedAt = DateTime.now();
+      }
       widget.onPlayingChanged?.call(value.isPlaying);
     }
     final completed = value.duration > Duration.zero && value.position >= value.duration;
@@ -420,10 +427,13 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
 
   // 全屏切换时窗口尺寸动画会触发播放内核重建视频输出，导致短暂暂停；
   // 在过渡期间自动恢复播放状态，用户不会感知到中断。
+  // 只恢复"刚发生"的暂停（过渡动画所致）；用户在过渡前后主动暂停的保持暂停。
   Future<void> _resumeAfterTransition(VideoPlayerController controller) async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     try {
-      if (controller.value.isInitialized && !controller.value.isPlaying) await controller.play();
+      if (!controller.value.isInitialized || controller.value.isPlaying) return;
+      if (DateTime.now().difference(_lastPausedAt).inMilliseconds > 1500) return;
+      await controller.play();
     } catch (_) {}
   }
 

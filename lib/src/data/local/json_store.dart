@@ -7,6 +7,9 @@ import 'package:path/path.dart' as path;
 import '../../core/platform_paths.dart';
 
 class JsonStore {
+  // 静态序号兜底：同一实例同一微秒内的两次并发写也不会得到相同临时文件名。
+  static var _writeSequence = 0;
+
   Future<Map<String, dynamic>> read(String fileName) async {
     try {
       final file = await _file(fileName);
@@ -24,7 +27,7 @@ class JsonStore {
     final file = await _file(fileName);
     // 先写临时文件再改名：崩溃/断电不会留下半截 JSON。临时文件名带唯一后缀——
     // 并发写同一文件时会共用 tmp 路径，先完成者把文件 rename 走，后者 ENOENT。
-    final unique = DateTime.now().microsecondsSinceEpoch ^ identityHashCode(this);
+    final unique = '${DateTime.now().microsecondsSinceEpoch}.${_writeSequence++}#${identityHashCode(this)}';
     final temporary = File('${file.path}.$unique.tmp');
     try {
       await temporary.writeAsString(jsonEncode(value), flush: true);
