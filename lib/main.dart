@@ -16,16 +16,25 @@ import 'src/features/settings/settings_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final (loadedSettings, _) = await (
-    SettingsStore(JsonStore()).load(),
-    LiquidGlassWidgets.initialize(),
-  ).wait;
-  await PlaybackSpeedPolicy.initialize();
+  final loadedSettings = await _loadSettings();
+  // 启动链路全部容错：任一初始化失败都不应让 App 起不来（上游 v1.2.0 同款）。
+  try {
+    await LiquidGlassWidgets.initialize();
+  } catch (_) {}
+  try {
+    await PlaybackSpeedPolicy.initialize();
+  } catch (_) {}
   final settings = PlaybackSpeedPolicy.isHarmonyOs && loadedSettings.playerEngine != PlayerEngine.libMpv
       ? loadedSettings.copyWith(playerEngine: PlayerEngine.libMpv)
       : loadedSettings;
-  if (!identical(settings, loadedSettings)) await SettingsStore(JsonStore()).save(settings);
-  MediaPlayerInitializer.bootstrap(settings);
+  if (!identical(settings, loadedSettings)) {
+    try {
+      await SettingsStore(JsonStore()).save(settings);
+    } catch (_) {}
+  }
+  try {
+    MediaPlayerInitializer.bootstrap(settings);
+  } catch (_) {}
   runApp(
     LiquidGlassWidgets.wrap(
       child: ProviderScope(
@@ -35,6 +44,14 @@ Future<void> main() async {
     ),
   );
   unawaited(_postLaunch());
+}
+
+Future<AppSettings> _loadSettings() async {
+  try {
+    return await SettingsStore(JsonStore()).load();
+  } catch (_) {
+    return const AppSettings();
+  }
 }
 
 Future<void> _postLaunch() async {

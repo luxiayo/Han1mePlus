@@ -20,9 +20,20 @@ class SettingsController extends AsyncNotifier<AppSettings> {
   @override
   Future<AppSettings> build() async {
     ref.onDispose(() => _persistDebounce?.cancel());
-    final settings = _initial ?? await ref.read(settingsStoreProvider).load();
-    await _syncNetworkSettings(settings);
+    final settings = await _loadSettings();
+    // 桌面端同步网络设置要走系统代理探测子进程，卡住时 8 秒后放行启动。
+    try {
+      await _syncNetworkSettings(settings).timeout(const Duration(seconds: 8));
+    } catch (_) {}
     return settings;
+  }
+
+  Future<AppSettings> _loadSettings() async {
+    try {
+      return _initial ?? await ref.read(settingsStoreProvider).load();
+    } catch (_) {
+      return const AppSettings();
+    }
   }
 
   AppSettings get _current => state.value ?? const AppSettings();

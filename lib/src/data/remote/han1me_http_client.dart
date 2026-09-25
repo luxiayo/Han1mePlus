@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart' as webview;
 
 import '../../core/desktop_platform.dart';
+import '../../core/site_hosts.dart';
 import 'windows_connection_factory.dart';
 import 'windows_http_overrides.dart';
 
@@ -36,8 +37,13 @@ class Han1meHttpClient {
       await _channel.invokeMethod<void>('saveCookies', {'cookies': cookies, if (url != null) 'url': url});
       return;
     }
+    // 站点系域名之间共享登录会话：写入一个域时同步到所有站内域，
+    // 避免"在 A 域登录、请求走 B 域时 401/403"。
     final host = Uri.tryParse(url ?? '')?.host;
-    if (host != null && host.isNotEmpty) _desktopCookies[host] = _mergeCookies(_desktopCookies[host], cookies);
+    if (host == null || host.isEmpty) return;
+    for (final target in _cookieHosts(host)) {
+      _desktopCookies[target] = _mergeCookies(_desktopCookies[target], cookies);
+    }
   }
 
   Future<void> clearCookies({String? url}) async {
@@ -49,9 +55,13 @@ class Han1meHttpClient {
     if (host == null || host.isEmpty) {
       _desktopCookies.clear();
     } else {
-      _desktopCookies.remove(host);
+      for (final target in _cookieHosts(host)) {
+        _desktopCookies.remove(target);
+      }
     }
   }
+
+  Iterable<String> _cookieHosts(String host) => hanimeSiteHosts.contains(host) ? hanimeSiteHosts : [host];
 
   Future<String> webViewCookies(String url) async {
     if (!_isDesktop) return await _channel.invokeMethod<String>('webViewCookies', {'url': url}) ?? '';
@@ -59,6 +69,15 @@ class Han1meHttpClient {
     final value = cookies.map((cookie) => '${cookie.name}=${cookie.value}').join('; ');
     if (value.isNotEmpty) await saveCookies(value, url: url);
     return value;
+  }
+
+  /// 合并多个 URL 的 webview cookie（跨站点收集登录会话用）。
+  Future<String> webViewCookiesFor(Iterable<String> urls) async {
+    var merged = '';
+    for (final url in urls) {
+      merged = _mergeCookies(merged, await webViewCookies(url));
+    }
+    return merged;
   }
 
   Future<void> clearWebViewCookies() async {
