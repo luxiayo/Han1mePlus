@@ -23,8 +23,10 @@ android {
     ndkVersion = "29.0.14206865"
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_25
-        targetCompatibility = JavaVersion.VERSION_25
+        // 与 Kotlin 编译目标（17）保持一致：不一致时 Kotlin 插件直接报错；
+        // 25 来自本地高版本 JDK，CI 的 JDK 17 编不了 25。
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     sourceSets {
