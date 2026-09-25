@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(han1me_plus LANGUAGES CXX)
 
+# VS 18 (MSVC 14.5x) 将 <experimental/coroutine> 标记为即将移除并默认报错 STL1011，
+# flutter_inappwebview_windows 等插件仍依赖它；定义抑制宏保持可编译。
+add_compile_definitions(_SILENCE_EXPERIMENTAL_COROUTINE_DEPRECATION_WARNINGS)
+
 set(BINARY_NAME "han1me_plus")
 
 get_property(IS_MULTICONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
