@@ -9,6 +9,11 @@ import '../settings/settings_controller.dart';
 
 int videoCardCacheWidth(double cardWidth, double devicePixelRatio) => (cardWidth * devicePixelRatio).round().clamp(240, 480).toInt();
 
+/// 6 列及以上的列数判定阈值（与探索页 _maxContentWidth 对齐）。
+const _wideColumnThreshold = 1680.0;
+/// 6 列及以上卡片的额外高度补偿。
+const _wideCardHeightBonus = 24.0;
+
 const _metaGap = 8.0;
 // 46 = 2 行 × 19.6（14px × 1.4 行高）+ 6.8px 余量：日文假名/汉字可能经
 // 回退字体渲染，墨迹可超出行盒，余量防止 Material 裁切吃掉第 2 行底部。
@@ -205,7 +210,10 @@ class VideoCardGrid extends ConsumerWidget {
         const mainAxisSpacing = 12.0;
         final effectiveCardsPerRow = (constraints.maxWidth / 280).floor().clamp(cardsPerRow, 8).toInt();
         final cardWidth = (constraints.maxWidth - horizontalPadding - crossAxisSpacing * (effectiveCardsPerRow - 1)) / effectiveCardsPerRow;
-        final cardHeight = horizontal ? cardWidth * 9 / 16 + videoCardMetaHeight(context) : cardWidth / .58;
+        // 6 列及以上（宽 >1680，与探索页上限对齐）时加高度补偿：该区间实测
+        // meta 区会被压缩、标题第二行被裁；加高后与 5 列的底部富余对齐。
+        final wideBonus = constraints.maxWidth > _wideColumnThreshold ? _wideCardHeightBonus : 0.0;
+        final cardHeight = horizontal ? cardWidth * 9 / 16 + videoCardMetaHeight(context) + wideBonus : cardWidth / .58;
         return GridView.builder(
           padding: EdgeInsets.fromLTRB(12, 12, 12, 24 + MediaQuery.paddingOf(context).bottom),
           scrollCacheExtent: ScrollCacheExtent.pixels(720),

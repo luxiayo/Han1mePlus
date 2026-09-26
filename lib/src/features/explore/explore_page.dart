@@ -21,6 +21,8 @@ import 'explore_controller.dart';
 import 'home_section_layout.dart';
 
 const _maxContentWidth = 1680.0;
+// 6 列及以上卡片的额外高度补偿（见 _HomeSection 展开网格处注释）。
+const _wideCardHeightBonus = 24.0;
 
 class ExplorePage extends ConsumerWidget {
   const ExplorePage({super.key});
@@ -210,6 +212,9 @@ class _HomeSectionState extends ConsumerState<_HomeSection> {
             builder: (context, constraints) {
               // 宽屏限宽后左右对称留白：网格靠左会在右侧空出突兀的一大条。
               final extra = ((constraints.crossAxisExtent - _maxContentWidth) / 2).clamp(0.0, double.infinity).toDouble();
+              // 6 列及以上（内容宽触及上限）时实测 meta 区会被压缩、标题第二行被裁：
+              // 给卡片加补偿高度，使底部富余与 5 列对齐。
+              final extraCardHeight = extra > 0 ? _wideCardHeightBonus : 0.0;
               return SliverPadding(
                 padding: EdgeInsets.fromLTRB(16 + extra, 0, 16 + extra, 20),
                 sliver: SliverGrid(
@@ -217,7 +222,7 @@ class _HomeSectionState extends ConsumerState<_HomeSection> {
                     crossAxisCount: metrics.cardsPerRow,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 10,
-                    mainAxisExtent: metrics.cardHeight,
+                    mainAxisExtent: metrics.cardHeight + extraCardHeight,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => VideoCardTile(video: widget.section.videos[index], horizontal: horizontal),
