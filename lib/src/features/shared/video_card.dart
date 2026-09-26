@@ -162,6 +162,7 @@ class VideoCardTile extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium?.copyWith(
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
                 height: _titleLineHeight,
               ),
