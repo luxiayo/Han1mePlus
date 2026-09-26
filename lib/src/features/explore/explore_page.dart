@@ -210,14 +210,24 @@ class _HomeSectionState extends ConsumerState<_HomeSection> {
             builder: (context, constraints) {
               // 宽屏限宽后左右对称留白：网格靠左会在右侧空出突兀的一大条。
               final extra = ((constraints.crossAxisExtent - _maxContentWidth) / 2).clamp(0.0, double.infinity).toDouble();
+              // 列数/卡宽必须从实际横轴宽度推导（MediaQuery 是整窗宽度，
+              // 有抽屉/边距时与网格不一致 → cover 比预算高 → meta 被压缩 → 标题第二行被裁）。
+              final gridExtent = constraints.crossAxisExtent - 32 - 2 * extra;
+              final gridMetrics = videoCardMetrics(
+                viewportWidth: gridExtent + 32,
+                horizontal: horizontal,
+                cardsPerRow: cardsPerRow,
+                expanded: true,
+                textScaler: MediaQuery.textScalerOf(context),
+              );
               return SliverPadding(
                 padding: EdgeInsets.fromLTRB(16 + extra, 0, 16 + extra, 20),
                 sliver: SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: metrics.cardsPerRow,
+                    crossAxisCount: gridMetrics.cardsPerRow,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 10,
-                    mainAxisExtent: metrics.cardHeight,
+                    mainAxisExtent: gridMetrics.cardHeight,
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) => VideoCardTile(video: widget.section.videos[index], horizontal: horizontal),

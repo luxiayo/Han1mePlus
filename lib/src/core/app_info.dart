@@ -6,7 +6,9 @@ import 'package:package_info_plus/package_info_plus.dart';
 const appFallbackVersion = '1.2.0';
 
 final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
-  final info = await PackageInfo.fromPlatform();
-  if (info.version.isNotEmpty) return info;
+  try {
+    final info = await PackageInfo.fromPlatform();
+    if (info.version.isNotEmpty) return info;
+  } catch (_) {}
   return PackageInfo(appName: 'Han1me+', packageName: 'com.liar.han1meplus', version: appFallbackVersion, buildNumber: '0');
 });
