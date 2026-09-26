@@ -10,20 +10,40 @@ import '../settings/settings_controller.dart';
 int videoCardCacheWidth(double cardWidth, double devicePixelRatio) => (cardWidth * devicePixelRatio).round().clamp(240, 480).toInt();
 
 const _metaGap = 8.0;
-// 46 = 2 行 × 19.6（14px × 1.4 行高）+ 6.8px 余量：日文假名/汉字可能经
-// 回退字体渲染，墨迹可超出行盒，余量防止 Material 裁切吃掉第 2 行底部。
-const _titleBoxHeight = 46.0;
+const _defaultMetaHeight = 92.0;
 const _metaLineHeight = 17.0;
-// 标题行高显式化：不依赖字体度量（微软雅黑等大行高字体否则会把
-// 第 2 行挤出盒子裁掉下半截）。1.4 略小于盒高上限 40/2/14≈1.43，给缩放舍入留余量。
-const _titleLineHeight = 1.4;
+const _titleFontSize = 14.0;
+const _titleMaxLines = 2;
 
-double videoCardDetailsHeightFor(TextScaler textScaler) =>
-    textScaler.scale(_titleBoxHeight) + 2 + textScaler.scale(_metaLineHeight) + 2 + textScaler.scale(_metaLineHeight);
+// 标题盒高运行时实测：用真实主题字体排版两行标题量出实际高度（含字体
+// 自带行距与降部），预留 = 实测 + 2px 余量。固定常量在字体度量不同的
+// 平台/回退字体上必然或裁或空，实测从根上消除这类偏差。
+final _titleBoxCache = <String, double>{};
 
-double videoCardMetaHeightFor(TextScaler textScaler) => _metaGap + videoCardDetailsHeightFor(textScaler);
+double _titleBoxHeightFor(BuildContext context, TextScaler scaler) {
+  final style = (Theme.of(context).textTheme.bodyMedium ?? const TextStyle(fontSize: _titleFontSize))
+      .copyWith(fontSize: _titleFontSize, fontWeight: FontWeight.w600);
+  final key = '${style.fontFamily}|${style.fontSize}|${scaler.hashCode}';
+  return _titleBoxCache.putIfAbsent(key, () {
+    final painter = TextPainter(
+      text: TextSpan(text: '標題排版測量TitleLayout國國Agjy' * 3, style: style),
+      textDirection: TextDirection.ltr,
+      maxLines: _titleMaxLines,
+      textScaler: scaler,
+    )..layout(maxWidth: 240);
+    final height = painter.height + 2;
+    painter.dispose();
+    return height;
+  });
+}
 
-double videoCardMetaHeight(BuildContext context) => videoCardMetaHeightFor(MediaQuery.textScalerOf(context));
+double videoCardMetaHeightFor({required double titleBoxHeight, required TextScaler textScaler}) =>
+    _metaGap + titleBoxHeight + 2 + textScaler.scale(_metaLineHeight) + 2 + textScaler.scale(_metaLineHeight);
+
+double videoCardMetaHeight(BuildContext context) {
+  final scaler = MediaQuery.textScalerOf(context);
+  return videoCardMetaHeightFor(titleBoxHeight: _titleBoxHeightFor(context, scaler), textScaler: scaler);
+}
 
 class VideoCardMetrics {
   const VideoCardMetrics({required this.horizontal, required this.cardsPerRow, required this.cardWidth, required this.cardHeight});
@@ -40,10 +60,10 @@ VideoCardMetrics videoCardMetrics({
   required int cardsPerRow,
   required bool expanded,
   TextScaler textScaler = TextScaler.noScaling,
+  double metaHeight = _defaultMetaHeight,
 }) {
   const spacing = 10.0;
   const padding = 32.0;
-  final metaHeight = videoCardMetaHeightFor(textScaler);
   if (expanded) {
     // 按目标卡宽 280px 推导列数（用户设置为下限、上限 8）：
     // 旧的 ≥1200 门控 + 300px 下限在宽屏只能排 4 列，右侧大片留白。
@@ -75,6 +95,7 @@ class VideoCardTile extends StatelessWidget {
         final theme = Theme.of(context);
         final textScaler = MediaQuery.textScalerOf(context);
         final cacheWidth = videoCardCacheWidth(constraints.maxWidth, MediaQuery.devicePixelRatioOf(context));
+        final titleBox = _titleBoxHeightFor(context, textScaler);
         return Material(
           color: selected ? theme.colorScheme.secondaryContainer : Colors.transparent,
           shape: RoundedRectangleBorder(
@@ -86,29 +107,29 @@ class VideoCardTile extends StatelessWidget {
             onTap: onTap ?? (video.id.isEmpty ? null : () => context.push('/video/${video.id}')),
             onLongPress: onLongPress,
             child: horizontal
-                ? _horizontalContent(theme, textScaler, cacheWidth)
-                : _verticalContent(theme, textScaler, cacheWidth),
+                ? _horizontalContent(theme, textScaler, cacheWidth, titleBox)
+                : _verticalContent(theme, textScaler, cacheWidth, titleBox),
           ),
         );
       },
     );
   }
 
-  Widget _verticalContent(ThemeData theme, TextScaler textScaler, int cacheWidth) => Column(
+  Widget _verticalContent(ThemeData theme, TextScaler textScaler, int cacheWidth, double titleBox) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(child: _cover(theme, cacheWidth)),
           const SizedBox(height: _metaGap),
-          _details(theme, textScaler, shrinkable: false),
+          _details(theme, textScaler, shrinkable: false, titleBox: titleBox),
         ],
       );
 
-  Widget _horizontalContent(ThemeData theme, TextScaler textScaler, int cacheWidth) => Column(
+  Widget _horizontalContent(ThemeData theme, TextScaler textScaler, int cacheWidth, double titleBox) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AspectRatio(aspectRatio: 16 / 9, child: _cover(theme, cacheWidth)),
           const SizedBox(height: _metaGap),
-          Flexible(fit: FlexFit.loose, child: _details(theme, textScaler, shrinkable: true)),
+          Flexible(fit: FlexFit.loose, child: _details(theme, textScaler, shrinkable: true, titleBox: titleBox)),
         ],
       );
 
@@ -147,7 +168,7 @@ class VideoCardTile extends StatelessWidget {
         ),
       );
 
-  Widget _details(ThemeData theme, TextScaler textScaler, {required bool shrinkable}) {
+  Widget _details(ThemeData theme, TextScaler textScaler, {required bool shrinkable, required double titleBox}) {
     Widget line(Widget child) => shrinkable ? Flexible(fit: FlexFit.loose, child: child) : child;
     final rating = video.rating;
     final uploadTime = video.uploadTime;
@@ -158,7 +179,7 @@ class VideoCardTile extends StatelessWidget {
       children: [
         line(
           SizedBox(
-            height: textScaler.scale(_titleBoxHeight),
+            height: titleBox,
             child: Text(
               video.title,
               maxLines: 2,
@@ -166,7 +187,6 @@ class VideoCardTile extends StatelessWidget {
               style: theme.textTheme.bodyMedium?.copyWith(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                height: _titleLineHeight,
               ),
             ),
           ),
@@ -205,7 +225,8 @@ class VideoCardGrid extends ConsumerWidget {
         const mainAxisSpacing = 12.0;
         final effectiveCardsPerRow = (constraints.maxWidth / 280).floor().clamp(cardsPerRow, 8).toInt();
         final cardWidth = (constraints.maxWidth - horizontalPadding - crossAxisSpacing * (effectiveCardsPerRow - 1)) / effectiveCardsPerRow;
-        final cardHeight = horizontal ? cardWidth * 9 / 16 + videoCardMetaHeight(context) : cardWidth / .58;
+        final metaHeight = videoCardMetaHeight(context);
+        final cardHeight = horizontal ? cardWidth * 9 / 16 + metaHeight : cardWidth / .58;
         return GridView.builder(
           padding: EdgeInsets.fromLTRB(12, 12, 12, 24 + MediaQuery.paddingOf(context).bottom),
           scrollCacheExtent: ScrollCacheExtent.pixels(720),

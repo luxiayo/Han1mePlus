@@ -173,6 +173,7 @@ class _HomeSectionState extends ConsumerState<_HomeSection> {
       cardsPerRow: settings?.searchCardsPerRow ?? 2,
       expanded: widget.forceExpanded || (settings?.expandHomeVideoCards ?? false),
       textScaler: MediaQuery.textScalerOf(context),
+      metaHeight: videoCardMetaHeight(context),
     );
     final cacheWidth = videoCardCacheWidth(metrics.cardWidth, pixelRatio);
     final count = metrics.cardsPerRow > 1 ? metrics.cardsPerRow * 2 : (screenWidth / metrics.cardWidth).ceil() + 2;
@@ -201,6 +202,7 @@ class _HomeSectionState extends ConsumerState<_HomeSection> {
       cardsPerRow: cardsPerRow,
       expanded: expanded,
       textScaler: MediaQuery.textScalerOf(context),
+      metaHeight: videoCardMetaHeight(context),
     );
     return SliverMainAxisGroup(
       slivers: [
@@ -219,6 +221,7 @@ class _HomeSectionState extends ConsumerState<_HomeSection> {
                 cardsPerRow: cardsPerRow,
                 expanded: true,
                 textScaler: MediaQuery.textScalerOf(context),
+                metaHeight: videoCardMetaHeight(context),
               );
               return SliverPadding(
                 padding: EdgeInsets.fromLTRB(16 + extra, 0, 16 + extra, 20),
