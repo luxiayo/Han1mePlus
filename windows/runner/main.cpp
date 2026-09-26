@@ -11,6 +11,25 @@
 
 namespace {
 
+// Windows 上 Impeller 无法渲染玻璃主题（Skia fragment shader 不可见，全 App 白屏），
+// 而引擎开关只认进程命令行（C API 无注入接口）：启动时若无此参数，带参重启自身。
+// 重启失败则继续原参数运行（宁可退化为白屏也不拒绝启动）。
+bool NeedsImpellerRelaunch() {
+  return wcsstr(GetCommandLineW(), L"--no-enable-impeller") == nullptr;
+}
+
+void RelaunchWithoutImpeller() {
+  wchar_t exe_path[MAX_PATH]{};
+  if (GetModuleFileNameW(nullptr, exe_path, MAX_PATH) == 0) return;
+  std::wstring cmdline = L"\"" + std::wstring(exe_path) + L"\" --no-enable-impeller";
+  STARTUPINFOW startup{};
+  startup.cb = sizeof(startup);
+  PROCESS_INFORMATION process{};
+  if (!CreateProcessW(nullptr, cmdline.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &startup, &process)) return;
+  CloseHandle(process.hThread);
+  CloseHandle(process.hProcess);
+}
+
 void ApplyPerMonitorDpiAwareness() {
   if (!SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)) {
     SetProcessDPIAware();
@@ -81,6 +100,10 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lpa
 }
 
 int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int show_command) {
+  if (NeedsImpellerRelaunch()) {
+    RelaunchWithoutImpeller();
+    return EXIT_SUCCESS;
+  }
   ApplyPerMonitorDpiAwareness();
   CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
   ConfigureWebViewUserDataFolder();

@@ -13,9 +13,15 @@ class AppLockController extends Notifier<AppLockStatus> {
 
   @override
   AppLockStatus build() {
+    // 桌面端无认证通道（authenticate 恒 false）：立即解锁，不等待设置加载——
+    // 否则启动期锁层会盖住整个 App（白屏观感）。
+    if (_everUnlocked || PlatformService.isDesktop) {
+      _everUnlocked = true;
+      return AppLockStatus.unlocked;
+    }
     final settings = ref.watch(settingsProvider).valueOrNull;
     if (settings == null) return AppLockStatus.unlocking;
-    if (_everUnlocked || !settings.appLockEnabled || PlatformService.isDesktop) {
+    if (!settings.appLockEnabled) {
       _everUnlocked = true;
       return AppLockStatus.unlocked;
     }
@@ -25,6 +31,11 @@ class AppLockController extends Notifier<AppLockStatus> {
   void markUnlocked() => _everUnlocked = true;
 
   Future<void> unlock() async {
+    if (PlatformService.isDesktop) {
+      _everUnlocked = true;
+      state = AppLockStatus.unlocked;
+      return;
+    }
     if (_authenticating) return;
     _authenticating = true;
     try {
