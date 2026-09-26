@@ -65,20 +65,23 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Package (zip)
+      - name: Package (installer exe)
         shell: pwsh
         run: |
           $version = ((Get-Content pubspec.yaml | Select-String '^version:').Line -split '\s+')[1].Split('+')[0]
-          $date = Get-Date -Format yyyyMMdd
-          $out = "Han1mePlus-v$version-windows-x64-$date"
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+            $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          }
           flutter build windows --release
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "build/$out.zip"
-          "ZIP_PATH=build/$out.zip" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          & $iscc "windows/packaging/han1meplus.iss" /DAppVersion=$version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-zip
-          path: build/*.zip
+          name: windows-exe
+          path: build/*.exe
           if-no-files-found: error
 
   ios:
