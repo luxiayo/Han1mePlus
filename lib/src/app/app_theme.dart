@@ -17,14 +17,15 @@ ThemeData appTheme(ColorScheme? dynamicScheme, Color seedColor, {Brightness brig
       surfaceContainerHighest: Colors.black,
     );
   }
-  // Windows 不指定字体时引擎回退链常落到宋体/等线，笔画细观感差；
-  // 显式钉死微软雅黑 UI（中英混排即 Windows 原生 UI 观感）。
+  // Windows 使用内置 Noto Sans SC 可变字体：系统雅黑的回退/字重合成
+  // （无 Medium/SemiBold，w500+ 全是伪加粗）与逐字回退导致粗细不一、笔画细；
+  // 内置可变字体字重真实、中日常用字形全覆盖、渲染跨机器一致。
   final isWindows = !kIsWeb && Platform.isWindows;
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    fontFamily: isWindows ? 'Microsoft YaHei UI' : null,
-    fontFamilyFallback: isWindows ? const ['Microsoft YaHei', 'Segoe UI'] : null,
+    fontFamily: isWindows ? 'NotoSansSC' : null,
+    fontFamilyFallback: isWindows ? const ['Microsoft YaHei UI', 'Microsoft YaHei', 'Segoe UI'] : null,
     scaffoldBackgroundColor: amoled ? Colors.black : null,
     canvasColor: amoled ? Colors.black : null,
     // 有意选择 2024 滑块外观，显式关闭 year2023（该属性已弃用但未来才会默认关闭）。

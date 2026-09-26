@@ -16,7 +16,12 @@ class AboutPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final version = ref.watch(packageInfoProvider).valueOrNull?.version ?? '';
+    final packageInfo = ref.watch(packageInfoProvider).valueOrNull;
+    final version = packageInfo == null || packageInfo.version.isEmpty
+        ? ''
+        : packageInfo.buildNumber.isEmpty
+            ? packageInfo.version
+            : '${packageInfo.version} (+${packageInfo.buildNumber})';
     return Scaffold(
         appBar: AppBar(title: Text(AppLocalizations.of(context)!.about)),
         body: ListView(
