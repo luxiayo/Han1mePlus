@@ -86,10 +86,10 @@ class WindowsConnectionFactory {
           plain = null;
         }
         if (winner.isCompleted) {
-          secure?.destroy();
+          secure.destroy();
           return;
         }
-        winner.complete(secure!);
+        winner.complete(secure);
       } catch (error, stackTrace) {
         plain?.destroy();
         secure?.destroy();
