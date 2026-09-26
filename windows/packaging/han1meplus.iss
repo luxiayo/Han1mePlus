@@ -15,7 +15,6 @@ AppVersion={#AppVersion}
 AppPublisher=luxiayo
 ; 不沿用注册表里的上次安装目录：手动删过旧目录后重装会往损坏路径写而报 Error 5。
 UsePreviousAppDir=no
-UsePreviousGroupName=no
 UsePreviousLanguage=no
 DefaultDirName={autopf}\Han1mePlus
 DefaultGroupName=Han1me+
