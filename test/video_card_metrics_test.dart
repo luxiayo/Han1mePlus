@@ -32,5 +32,16 @@ void main() {
       final metrics = videoCardMetrics(viewportWidth: 640, cardsPerRow: 2, horizontal: true, expanded: false);
       expect(metrics.cardWidth, 154.0);
     });
+
+    test('宽屏按 280px 推导列数并封顶 8', () {
+      expect(videoCardMetrics(viewportWidth: 1440, cardsPerRow: 2, horizontal: true, expanded: true).cardsPerRow, 5);
+      expect(videoCardMetrics(viewportWidth: 1920, cardsPerRow: 2, horizontal: true, expanded: true).cardsPerRow, 6);
+      expect(videoCardMetrics(viewportWidth: 2560, cardsPerRow: 2, horizontal: true, expanded: true).cardsPerRow, 8);
+    });
+
+    test('列数不低于用户设置（移动端 2 列不变），窄窗也能到 4 列', () {
+      expect(videoCardMetrics(viewportWidth: 390, cardsPerRow: 2, horizontal: true, expanded: true).cardsPerRow, 2);
+      expect(videoCardMetrics(viewportWidth: 1194, cardsPerRow: 2, horizontal: true, expanded: true).cardsPerRow, 4);
+    });
   });
 }

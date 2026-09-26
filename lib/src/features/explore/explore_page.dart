@@ -20,7 +20,7 @@ import '../shared/video_card.dart';
 import 'explore_controller.dart';
 import 'home_section_layout.dart';
 
-const _maxContentWidth = 1440.0;
+const _maxContentWidth = 1680.0;
 
 class ExplorePage extends ConsumerWidget {
   const ExplorePage({super.key});
@@ -206,23 +206,26 @@ class _HomeSectionState extends ConsumerState<_HomeSection> {
       slivers: [
         SliverToBoxAdapter(child: _MaxWidth(child: _SectionHeader(section: widget.section))),
         if (expanded)
-          SliverConstrainedCrossAxis(
-            maxExtent: _maxContentWidth,
-            sliver: SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: metrics.cardsPerRow,
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 10,
-                  mainAxisExtent: metrics.cardHeight,
+          SliverLayoutBuilder(
+            builder: (context, constraints) {
+              // 宽屏限宽后左右对称留白：网格靠左会在右侧空出突兀的一大条。
+              final extra = ((constraints.crossAxisExtent - _maxContentWidth) / 2).clamp(0.0, double.infinity).toDouble();
+              return SliverPadding(
+                padding: EdgeInsets.fromLTRB(16 + extra, 0, 16 + extra, 20),
+                sliver: SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: metrics.cardsPerRow,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 10,
+                    mainAxisExtent: metrics.cardHeight,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) => VideoCardTile(video: widget.section.videos[index], horizontal: horizontal),
+                    childCount: widget.section.videos.length,
+                  ),
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) => VideoCardTile(video: widget.section.videos[index], horizontal: horizontal),
-                  childCount: widget.section.videos.length,
-                ),
-              ),
-            ),
+              );
+            },
           )
         else
           SliverToBoxAdapter(

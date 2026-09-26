@@ -40,7 +40,9 @@ VideoCardMetrics videoCardMetrics({
   const padding = 32.0;
   final metaHeight = videoCardMetaHeightFor(textScaler);
   if (expanded) {
-    final effective = viewportWidth >= 1200 ? (viewportWidth / 300).floor().clamp(cardsPerRow, 6).toInt() : cardsPerRow;
+    // 按目标卡宽 280px 推导列数（用户设置为下限、上限 8）：
+    // 旧的 ≥1200 门控 + 300px 下限在宽屏只能排 4 列，右侧大片留白。
+    final effective = (viewportWidth / 280).floor().clamp(cardsPerRow, 8).toInt();
     final cardWidth = (viewportWidth - padding - spacing * (effective - 1)) / effective;
     final cardHeight = horizontal ? cardWidth * 9 / 16 + metaHeight : cardWidth / .58;
     return VideoCardMetrics(horizontal: horizontal, cardsPerRow: effective, cardWidth: cardWidth, cardHeight: cardHeight);
@@ -194,9 +196,7 @@ class VideoCardGrid extends ConsumerWidget {
         const horizontalPadding = 24.0;
         const crossAxisSpacing = 10.0;
         const mainAxisSpacing = 12.0;
-        final effectiveCardsPerRow = constraints.maxWidth >= 1200
-            ? (constraints.maxWidth / 300).floor().clamp(cardsPerRow, 6).toInt()
-            : cardsPerRow;
+        final effectiveCardsPerRow = (constraints.maxWidth / 280).floor().clamp(cardsPerRow, 8).toInt();
         final cardWidth = (constraints.maxWidth - horizontalPadding - crossAxisSpacing * (effectiveCardsPerRow - 1)) / effectiveCardsPerRow;
         final cardHeight = horizontal ? cardWidth * 9 / 16 + videoCardMetaHeight(context) : cardWidth / .58;
         return GridView.builder(
