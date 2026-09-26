@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../core/settings.dart';
@@ -14,9 +17,14 @@ ThemeData appTheme(ColorScheme? dynamicScheme, Color seedColor, {Brightness brig
       surfaceContainerHighest: Colors.black,
     );
   }
+  // Windows 不指定字体时引擎回退链常落到宋体/等线，笔画细观感差；
+  // 显式钉死微软雅黑 UI（中英混排即 Windows 原生 UI 观感）。
+  final isWindows = !kIsWeb && Platform.isWindows;
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
+    fontFamily: isWindows ? 'Microsoft YaHei UI' : null,
+    fontFamilyFallback: isWindows ? const ['Microsoft YaHei', 'Segoe UI'] : null,
     scaffoldBackgroundColor: amoled ? Colors.black : null,
     canvasColor: amoled ? Colors.black : null,
     // 有意选择 2024 滑块外观，显式关闭 year2023（该属性已弃用但未来才会默认关闭）。
