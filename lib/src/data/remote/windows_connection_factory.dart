@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 class WindowsConnectionFactory {
-  static var _nextAddress = 0;
 
   static const hanimeHosts = {'hanime1.me', 'hanime1.com', 'hanimeone.me', 'javchu.com'};
 
@@ -58,28 +58,55 @@ class WindowsConnectionFactory {
 
   Future<ConnectionTask<Socket>> _connect(Uri uri, List<String> addresses, int port) async {
     final allowBadCertificate = useBuiltInHosts && hanimeHosts.contains(uri.host);
-    final start = _nextAddress++ % addresses.length;
+    // 并行竞速所有候选地址，最先完成 TLS 的胜出、其余销毁：
+    // 串行逐个等待会让每个不可达 IP 各吃满连接超时（默认 10s），
+    // 启动期首个请求可拖 20 秒以上（白屏元凶）。
+    final winner = Completer<SecureSocket>();
+    var failures = 0;
     Object? lastError;
     StackTrace? lastStackTrace;
-    for (var offset = 0; offset < addresses.length; offset++) {
-      final address = addresses[(start + offset) % addresses.length];
+
+    Future<void> attempt(String address) async {
       Socket? plain;
+      SecureSocket? secure;
       try {
-        if (address == uri.host) return await _startConnect(uri.host, port);
-        plain = await Socket.connect(address, port, timeout: _timeout);
-        final secure = await SecureSocket.secure(
-          plain,
-          host: uri.host,
-          onBadCertificate: allowBadCertificate ? (_) => true : null,
-        );
-        return ConnectionTask.fromSocket(Future.value(secure), secure.destroy);
+        if (address == uri.host) {
+          // 系统 DNS 路径：直接 TLS 连接（证书严格校验）。
+          final task = await SecureSocket.startConnect(uri.host, port);
+          secure = await task.socket.timeout(_timeout);
+        } else {
+          // 钉死 IP 路径：裸连 IP + 以目标域名为 SNI 完成 TLS，
+          // 站内域允许坏证书（优选 IP 的证书可能不匹配）。
+          plain = await Socket.connect(address, port, timeout: _timeout);
+          if (winner.isCompleted) {
+            plain.destroy();
+            return;
+          }
+          secure = await SecureSocket.secure(plain, host: uri.host, onBadCertificate: allowBadCertificate ? (_) => true : null);
+          plain = null;
+        }
+        if (winner.isCompleted) {
+          secure?.destroy();
+          return;
+        }
+        winner.complete(secure!);
       } catch (error, stackTrace) {
         plain?.destroy();
+        secure?.destroy();
+        failures++;
         lastError = error;
         lastStackTrace = stackTrace;
+        if (failures == addresses.length && !winner.isCompleted) {
+          winner.completeError(lastError!, lastStackTrace!);
+        }
       }
     }
-    Error.throwWithStackTrace(lastError!, lastStackTrace!);
+
+    for (final address in addresses) {
+      unawaited(attempt(address));
+    }
+    final socket = await winner.future;
+    return ConnectionTask.fromSocket(Future.value(socket), socket.destroy);
   }
 
   Future<ConnectionTask<Socket>> _startConnect(String host, int port) => SecureSocket.startConnect(host, port);
