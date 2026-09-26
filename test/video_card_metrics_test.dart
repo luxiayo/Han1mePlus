@@ -5,12 +5,12 @@ import 'package:han1me_plus/src/features/shared/video_card.dart';
 void main() {
   group('videoCardMetaHeightFor', () {
     test('无缩放时等于间距 + 标题 + 两行元信息', () {
-      // 8(gap) + 40(title) + 2 + 17 + 2 + 17
-      expect(videoCardMetaHeightFor(TextScaler.noScaling), 86.0);
+      // 8(gap) + 46(title) + 2 + 17 + 2 + 17
+      expect(videoCardMetaHeightFor(TextScaler.noScaling), 92.0);
     });
 
     test('跟随系统字体缩放，间距不缩放', () {
-      expect(videoCardMetaHeightFor(const TextScaler.linear(2.0)), 8 + 80.0 + 2 + 34.0 + 2 + 34.0);
+      expect(videoCardMetaHeightFor(const TextScaler.linear(2.0)), 8 + 92.0 + 2 + 34.0 + 2 + 34.0);
     });
   });
 

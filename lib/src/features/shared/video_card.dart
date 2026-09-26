@@ -10,7 +10,9 @@ import '../settings/settings_controller.dart';
 int videoCardCacheWidth(double cardWidth, double devicePixelRatio) => (cardWidth * devicePixelRatio).round().clamp(240, 480).toInt();
 
 const _metaGap = 8.0;
-const _titleBoxHeight = 40.0;
+// 46 = 2 行 × 19.6（14px × 1.4 行高）+ 6.8px 余量：日文假名/汉字可能经
+// 回退字体渲染，墨迹可超出行盒，余量防止 Material 裁切吃掉第 2 行底部。
+const _titleBoxHeight = 46.0;
 const _metaLineHeight = 17.0;
 // 标题行高显式化：不依赖字体度量（微软雅黑等大行高字体否则会把
 // 第 2 行挤出盒子裁掉下半截）。1.4 略小于盒高上限 40/2/14≈1.43，给缩放舍入留余量。
