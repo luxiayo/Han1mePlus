@@ -1,12 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../domain/models/video.dart';
+import '../settings/settings_controller.dart';
 import 'video_card.dart';
-
-const compactVideoCardsPerRow = 3;
 
 class CompactVideoCard extends StatelessWidget {
   const CompactVideoCard({super.key, required this.video, this.onTap});
@@ -79,7 +79,7 @@ class CompactVideoCard extends StatelessWidget {
       );
 }
 
-class CompactVideoCardGrid extends StatelessWidget {
+class CompactVideoCardGrid extends ConsumerWidget {
   const CompactVideoCardGrid({super.key, required this.videos, this.itemBuilder, this.keyboardDismissBehavior});
 
   final List<VideoCard> videos;
@@ -87,20 +87,26 @@ class CompactVideoCardGrid extends StatelessWidget {
   final ScrollViewKeyboardDismissBehavior? keyboardDismissBehavior;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final cardsPerRow = ref.watch(settingsProvider).valueOrNull?.searchCardsPerRow ?? 2;
     return LayoutBuilder(
       builder: (context, constraints) {
         const horizontalPadding = 24.0;
         const crossAxisSpacing = 10.0;
         const mainAxisSpacing = 12.0;
-        final cardWidth = (constraints.maxWidth - horizontalPadding - crossAxisSpacing * (compactVideoCardsPerRow - 1)) / compactVideoCardsPerRow;
+        // 列数从实际横轴宽度推导：目标卡宽 120 恰好让手机竖屏（360~430）保持
+        // 原有 3 列，横屏/宽屏按宽度增加；下限用影片卡片每行数量设置、上限 8，
+        // 均与 VideoCardGrid 对齐。此前写死 3 列，横屏会把 3:4 卡拉得过大。
+        // 卡高由比例+标题盒精确算出，任意列数无需高度补偿。
+        final effectiveCardsPerRow = (constraints.maxWidth / 120).floor().clamp(cardsPerRow, 8).toInt();
+        final cardWidth = (constraints.maxWidth - horizontalPadding - crossAxisSpacing * (effectiveCardsPerRow - 1)) / effectiveCardsPerRow;
         final cardHeight = cardWidth * 4 / 3 + 6 + MediaQuery.textScalerOf(context).scale(40);
         return GridView.builder(
           padding: EdgeInsets.fromLTRB(12, 12, 12, 24 + MediaQuery.paddingOf(context).bottom),
           scrollCacheExtent: ScrollCacheExtent.pixels(720),
           keyboardDismissBehavior: keyboardDismissBehavior,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: compactVideoCardsPerRow,
+            crossAxisCount: effectiveCardsPerRow,
             mainAxisSpacing: mainAxisSpacing,
             crossAxisSpacing: crossAxisSpacing,
             mainAxisExtent: cardHeight,
