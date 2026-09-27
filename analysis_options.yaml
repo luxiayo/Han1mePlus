@@ -16,6 +16,8 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    # vendor 的第三方包（仅打了 DefaultTextStyle.merge 补丁），不参与项目 analyze
+    - packages/**
 include: package:flutter_lints/flutter.yaml
 
 linter:

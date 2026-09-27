@@ -1,7 +1,7 @@
 name: han1me_plus
 description: Flutter client for browsing Han1me content.
 publish_to: 'none'
-version: 1.2.1+29
+version: 1.2.1+30
 
 environment:
   sdk: '>=3.11.0 <4.0.0'
@@ -50,6 +50,13 @@ dev_dependencies:
   flutter_lints: ^5.0.0
   flutter_native_splash: ^2.4.8
   flutter_launcher_icons: ^0.14.3
+
+# 本地补丁版 card_settings_ui：settings_tile/section 里的 plain
+# DefaultTextStyle 会整体替换主题样式导致 fontFamily 丢失（Windows 上
+# 设置条目逐字回退、粗细不一），已改为 DefaultTextStyle.merge 继承主题。
+dependency_overrides:
+  card_settings_ui:
+    path: packages/card_settings_ui
 
 flutter:
   uses-material-design: true
