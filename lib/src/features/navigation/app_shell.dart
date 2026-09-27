@@ -71,7 +71,7 @@ class _AppShellState extends ConsumerState<AppShell> with SingleTickerProviderSt
     final largeScreen = MediaQuery.sizeOf(context).shortestSide >= 600;
     final permanentDrawer = drawerMode && largeScreen;
     final useRail = !drawerMode && largeScreen;
-    final useLiquidGlassBottomBar = !drawerMode && !useRail && (settings?.useLiquidGlassBottomBar ?? true);
+    final useLiquidGlassBottomBar = !drawerMode && !useRail && (settings?.useLiquidGlassBottomBar ?? false);
     final destinations = [
       (icon: Icons.explore_outlined, selectedIcon: Icons.explore, label: AppLocalizations.of(context)!.explore),
       (icon: Icons.bookmark_outline, selectedIcon: Icons.bookmark, label: AppLocalizations.of(context)!.library),

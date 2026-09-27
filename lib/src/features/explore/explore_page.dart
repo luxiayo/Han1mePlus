@@ -86,7 +86,7 @@ class _HomeFeedBody extends ConsumerWidget {
         .toList();
     Future<void> refresh() => ref.read(homeSectionsProvider.notifier).refresh();
     final showFeatured = settings?.showHomeFeatured ?? true;
-    if (settings?.useHomeCategoryTabs != true || sections.isEmpty) return M3EPullToRefreshIndicator(onRefresh: refresh, child: _HomeScroll(featured: showFeatured ? feed.featured : null, sections: sections));
+    if ((settings?.useHomeCategoryTabs ?? true) == false || sections.isEmpty) return M3EPullToRefreshIndicator(onRefresh: refresh, child: _HomeScroll(featured: showFeatured ? feed.featured : null, sections: sections));
     return DefaultTabController(length: sections.length, child: Column(children: [
       TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: sections.map((section) => Tab(text: section.title)).toList()),
       Expanded(child: TabBarView(children: sections.asMap().entries.map((entry) {

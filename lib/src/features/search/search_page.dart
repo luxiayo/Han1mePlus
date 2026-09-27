@@ -66,7 +66,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final notifier = ref.read(searchQueryProvider(request).notifier);
     final options = ref.watch(searchOptionCatalogProvider).valueOrNull;
     final l10n = AppLocalizations.of(context)!;
-    final useCompactCards = (ref.watch(settingsProvider).valueOrNull?.useCompactSearchCards ?? true) &&
+    final useCompactCards = (ref.watch(settingsProvider).valueOrNull?.useCompactSearchCards ?? false) &&
         _compactSearchGenres.contains(options?.genres.canonical(query.genre) ?? query.genre);
     ref.listen<SearchQuery>(searchQueryProvider(request), (previous, next) {
       if (previous != next && next.hasSearchCriteria) unawaited(ref.read(searchHistoryProvider.notifier).record(next));
