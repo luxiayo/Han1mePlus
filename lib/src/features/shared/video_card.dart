@@ -161,18 +161,19 @@ class VideoCardTile extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        line(
-          SizedBox(
-            height: textScaler.scale(_titleBoxHeight),
-            child: Text(
-              video.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                height: _titleLineHeight,
-              ),
+        // 标题盒不参与 flex 分配：网格 cell 已按 metaHeight 预留精确空间，
+        // 若与作者名同为 flex:1，剩余空间被对半分，标题只拿到约一半，
+        // 第 2 行被裁到 6-7 成；宁可让作者名（Flexible）让位。
+        SizedBox(
+          height: textScaler.scale(_titleBoxHeight),
+          child: Text(
+            video.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              height: _titleLineHeight,
             ),
           ),
         ),
