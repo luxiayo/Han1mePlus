@@ -1,7 +1,7 @@
 name: han1me_plus
 description: Flutter client for browsing Han1me content.
 publish_to: 'none'
-version: 1.2.0+27
+version: 1.2.0+28
 
 environment:
   sdk: '>=3.11.0 <4.0.0'
@@ -52,10 +52,6 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.3
 
 flutter:
-  fonts:
-    - family: NotoSansSC
-      fonts:
-        - asset: assets/fonts/NotoSansSC-VF.ttf
   uses-material-design: true
   generate: true
   assets:
