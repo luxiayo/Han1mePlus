@@ -29,8 +29,10 @@ void main() {
 
     test('缺省字段落到默认值', () {
       final restored = AppSettings.fromJson({});
-      expect(restored.useLiquidGlassBottomBar, isTrue);
-      expect(restored.useHomeCategoryTabs, isFalse);
+      expect(restored.useCompactSearchCards, isFalse);
+      expect(restored.useLiquidGlassBottomBar, isFalse);
+      expect(restored.useHomeCategoryTabs, isTrue);
+      expect(restored.useHorizontalSearchCards, isTrue);
       expect(restored.showHomeFeatured, isTrue);
       expect(restored.homeSectionOrder, isEmpty);
       expect(restored.hiddenHomeSections, isEmpty);
