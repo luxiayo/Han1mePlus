@@ -36,9 +36,14 @@ class _LibraryPageState extends ConsumerState<LibraryPage> {
 
   @override
   Widget build(BuildContext context) {
-    final account = ref.watch(accountProvider).valueOrNull;
+    final account = ref.watch(accountProvider);
     final drawerMode = ref.watch(settingsProvider).valueOrNull?.useNavigationDrawer ?? false;
-    if (account?.id != null) return _RemoteLibrary(initialTab: widget.initialTab, drawerMode: drawerMode);
+    // 账号尚在加载时不当作未登录：冷启动先渲染本地库、账号解析为已登录后
+    // 再闪切成同步屏。仅加载完成（出错时容错降级到本地库）后才分流。
+    if (account.isLoading && !account.hasValue) {
+      return Scaffold(appBar: AppBar(title: Text(AppLocalizations.of(context)!.myLibrary)), body: const Center(child: M3EContainedLoadingIndicator()));
+    }
+    if (account.valueOrNull?.id != null) return _RemoteLibrary(initialTab: widget.initialTab, drawerMode: drawerMode);
     final value = ref.watch(libraryProvider);
     final l10n = AppLocalizations.of(context)!;
     if (drawerMode) {
@@ -117,13 +122,40 @@ class _RemoteLibrary extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context)!;
     final account = ref.watch(accountProvider).valueOrNull;
+    final remote = ref.watch(remoteLibraryProvider);
+    final cache = ref.watch(libraryProvider).valueOrNull;
+    // 本地持久化的云端快照可用时，冷启动先展示缓存、后台同步完成后无感
+    // 替换，不再整页等同步（订阅多时全量同步可达数十秒）；快照不存在
+    // （真正首次登录）才走分步进度屏。
+    final cacheUsable = !remote.hasValue && (cache?.remoteCached ?? false);
+    final cachedRemote = cacheUsable
+        ? RemoteLibrary(
+            watchLater: cache!.watchLater,
+            favorites: cache.favorites,
+            playlists: cache.playlists,
+            subscriptionArtists: cache.artists,
+            subscriptions: [for (final artist in cache.artists) ...?cache.subscriptionVideos[artist.id]],
+            history: cache.history,
+          )
+        : null;
+    // 数据在手（或缓存可用）且距上次同步尝试超过 5 分钟 → 后台静默刷新：
+    // refresh 期间 skipLoadingOnRefresh / 缓存视图继续展示旧数据，完成后
+    // 无感替换；出错也等下次过期再试，不会立刻重试打转。
+    if (remote.hasValue || cacheUsable) {
+      final syncedAt = ref.watch(librarySyncedAtProvider);
+      if (syncedAt == null || DateTime.now().difference(syncedAt) >= const Duration(minutes: 5)) {
+        Future.microtask(() {
+          if (context.mounted) ref.invalidate(remoteLibraryProvider);
+        });
+      }
+    }
     if (drawerMode) {
       return Scaffold(
         appBar: AppBar(leading: permanentNavigationDrawer(context) ? null : IconButton(onPressed: openAppDrawer, icon: const Icon(Icons.menu)), title: Text(_tabTitle(l10n, initialTab))),
-        body: ref.watch(remoteLibraryProvider).when(
+        body: remote.when(
           skipLoadingOnRefresh: true,
-          loading: () => _libraryLoading(context, ref),
-          error: (error, stackTrace) => _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
+          loading: () => cachedRemote != null ? _remoteTabContent(context, ref, cachedRemote, initialTab, account?.csrfToken) : _libraryLoading(context, ref),
+          error: (error, stackTrace) => cachedRemote != null ? _remoteTabContent(context, ref, cachedRemote, initialTab, account?.csrfToken) : _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
           data: (library) => _remoteTabContent(context, ref, library, initialTab, account?.csrfToken),
         ),
       );
@@ -134,10 +166,10 @@ class _RemoteLibrary extends ConsumerWidget {
       child: Builder(
         builder: (context) => Scaffold(
           appBar: AppBar(leading: ref.watch(settingsProvider).valueOrNull?.useNavigationDrawer ?? false ? (permanentNavigationDrawer(context) ? null : IconButton(onPressed: openAppDrawer, icon: const Icon(Icons.menu))) : null, title: Text(l10n.myLibrary), bottom: TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: _tabs(l10n))),
-              body: ref.watch(remoteLibraryProvider).when(
+              body: remote.when(
                     skipLoadingOnRefresh: true,
-                    loading: () => _libraryLoading(context, ref),
-                    error: (error, stackTrace) => _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
+                    loading: () => cachedRemote != null ? TabBarView(children: [for (var index = 0; index < 5; index++) _remoteTabContent(context, ref, cachedRemote, index, account?.csrfToken)]) : _libraryLoading(context, ref),
+                    error: (error, stackTrace) => cachedRemote != null ? TabBarView(children: [for (var index = 0; index < 5; index++) _remoteTabContent(context, ref, cachedRemote, index, account?.csrfToken)]) : _RemoteErrorView(error: error, onRetry: () => ref.invalidate(remoteLibraryProvider)),
                     data: (library) => TabBarView(children: [for (var index = 0; index < 5; index++) _remoteTabContent(context, ref, library, index, account?.csrfToken)]),
                   ),
         ),

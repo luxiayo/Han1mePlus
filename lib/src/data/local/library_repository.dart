@@ -7,17 +7,21 @@ import 'json_store.dart';
 final libraryRepositoryProvider = Provider((_) => LibraryRepository(JsonStore()));
 
 class LibraryState {
-  const LibraryState({this.watchLater = const [], this.favorites = const [], this.playlists = const [], this.artists = const [], this.subscriptionVideos = const {}});
+  const LibraryState({this.watchLater = const [], this.favorites = const [], this.playlists = const [], this.artists = const [], this.subscriptionVideos = const {}, this.history = const [], this.remoteCached = false});
   final List<FollowingVideo> watchLater;
   final List<FollowingVideo> favorites;
   final List<Playlist> playlists;
   final List<SubscribedArtist> artists;
   final Map<String, List<FollowingVideo>> subscriptionVideos;
-  Map<String, dynamic> toJson() => {'watchLater': watchLater.map((item) => item.toJson()).toList(), 'favorites': favorites.map((item) => item.toJson()).toList(), 'playlists': playlists.map((item) => item.toJson()).toList(), 'subscribedArtists': artists.map((item) => item.toJson()).toList(), 'subscriptionVideos': subscriptionVideos.map((key, value) => MapEntry(key, value.map((item) => item.toJson()).toList()))};
+  final List<FollowingVideo> history;
+  /// 本地库是否含云端同步快照（cacheRemote 写入并持久化）：登录态冷启动
+  /// 用来决定「先展示缓存、后台增量刷新」还是走首次全量同步。
+  final bool remoteCached;
+  Map<String, dynamic> toJson() => {'watchLater': watchLater.map((item) => item.toJson()).toList(), 'favorites': favorites.map((item) => item.toJson()).toList(), 'playlists': playlists.map((item) => item.toJson()).toList(), 'subscribedArtists': artists.map((item) => item.toJson()).toList(), 'subscriptionVideos': subscriptionVideos.map((key, value) => MapEntry(key, value.map((item) => item.toJson()).toList())), 'history': history.map((item) => item.toJson()).toList(), 'remoteCached': remoteCached};
   factory LibraryState.fromJson(Map<String, dynamic> json) {
     List<FollowingVideo> list(String key) => ((json[key] as List?) ?? const []).whereType<Map>().map((item) => FollowingVideo.fromJson(Map<String, dynamic>.from(item))).toList();
     final entries = (json['subscriptionVideos'] as Map?) ?? const {};
-    return LibraryState(watchLater: list('watchLater'), favorites: list('favorites'), playlists: ((json['playlists'] as List?) ?? const []).whereType<Map>().map((item) => Playlist.fromJson(Map<String, dynamic>.from(item))).toList(), artists: ((json['subscribedArtists'] as List?) ?? const []).whereType<Map>().map((item) => SubscribedArtist.fromJson(Map<String, dynamic>.from(item))).toList(), subscriptionVideos: entries.map((key, value) => MapEntry('$key', (value as List? ?? const []).whereType<Map>().map((item) => FollowingVideo.fromJson(Map<String, dynamic>.from(item))).toList())));
+    return LibraryState(watchLater: list('watchLater'), favorites: list('favorites'), playlists: ((json['playlists'] as List?) ?? const []).whereType<Map>().map((item) => Playlist.fromJson(Map<String, dynamic>.from(item))).toList(), artists: ((json['subscribedArtists'] as List?) ?? const []).whereType<Map>().map((item) => SubscribedArtist.fromJson(Map<String, dynamic>.from(item))).toList(), subscriptionVideos: entries.map((key, value) => MapEntry('$key', (value as List? ?? const []).whereType<Map>().map((item) => FollowingVideo.fromJson(Map<String, dynamic>.from(item))).toList())), history: list('history'), remoteCached: json['remoteCached'] as bool? ?? false);
   }
 }
 
@@ -88,15 +92,49 @@ class LibraryController extends AsyncNotifier<LibraryState> {
     final artists = remote.subscriptionArtists;
     final videos = <String, List<FollowingVideo>>{};
     for (final artist in artists) {
-      videos[_artistId(artist.name)] = remote.subscriptions.where((video) => video.artistName == artist.name).toList();
+      // 订阅视频做并集：增量刷新只抓了前几页，缓存里更早页的视频保留在
+      // 尾部不被抹掉（增量/全量统一走并集，代价仅是云端已删条目残留）。
+      final key = _artistId(artist.name);
+      videos[key] = mergeVideosByVideoCode(current.subscriptionVideos[key] ?? const [], remote.subscriptions.where((video) => video.artistName == artist.name).toList());
     }
-    await _save(_copy(current, watchLater: remote.watchLater, favorites: remote.favorites, playlists: remote.playlists, artists: artists, subscriptionVideos: videos));
+    // 合并而非整表替换：登出期间加进本地库、云端快照里没有的条目不能被
+    // 下一次同步抹掉。云端为权威顺序，本地独有条目按原顺序追加在后。
+    // 代价：云端已删除但本地缓存仍有的条目会在登出视图里保留——登录态
+    // UI 始终以远端数据为准，可接受。
+    final localOnlyArtists = current.artists.where((artist) => artist.id.isNotEmpty && artists.every((remoteArtist) => remoteArtist.id != artist.id));
+    for (final artist in localOnlyArtists) {
+      final cached = current.subscriptionVideos[artist.id];
+      if (cached != null && cached.isNotEmpty) videos[artist.id] = cached;
+    }
+    await _save(_copy(
+      current,
+      watchLater: mergeVideosByVideoCode(current.watchLater, remote.watchLater),
+      favorites: mergeVideosByVideoCode(current.favorites, remote.favorites),
+      playlists: mergePlaylistsById(current.playlists, remote.playlists),
+      artists: [...artists, ...localOnlyArtists],
+      subscriptionVideos: videos,
+      history: remote.history,
+      remoteCached: true,
+    ));
   }
   Future<void> replaceFavorites(List<FollowingVideo> favorites) async {
     final current = state.value ?? const LibraryState();
     await _save(_copy(current, favorites: favorites));
   }
   Future<void> replace(LibraryState value) => _save(value);
-  LibraryState _copy(LibraryState value, {List<FollowingVideo>? watchLater, List<FollowingVideo>? favorites, List<Playlist>? playlists, List<SubscribedArtist>? artists, Map<String, List<FollowingVideo>>? subscriptionVideos}) => LibraryState(watchLater: watchLater ?? value.watchLater, favorites: favorites ?? value.favorites, playlists: playlists ?? value.playlists, artists: artists ?? value.artists, subscriptionVideos: subscriptionVideos ?? value.subscriptionVideos);
+  LibraryState _copy(LibraryState value, {List<FollowingVideo>? watchLater, List<FollowingVideo>? favorites, List<Playlist>? playlists, List<SubscribedArtist>? artists, Map<String, List<FollowingVideo>>? subscriptionVideos, List<FollowingVideo>? history, bool? remoteCached}) => LibraryState(watchLater: watchLater ?? value.watchLater, favorites: favorites ?? value.favorites, playlists: playlists ?? value.playlists, artists: artists ?? value.artists, subscriptionVideos: subscriptionVideos ?? value.subscriptionVideos, history: history ?? value.history, remoteCached: remoteCached ?? value.remoteCached);
   String _artistId(String name) => name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
+}
+
+/// 云端为权威顺序，本地独有（videoCode 未出现在云端）条目按原顺序追加在后。
+/// 空 videoCode 的坏条目直接丢弃（无法去重也无法打开）。
+List<FollowingVideo> mergeVideosByVideoCode(List<FollowingVideo> local, List<FollowingVideo> remote) {
+  final seen = {for (final video in remote) video.videoCode};
+  return [...remote, ...local.where((video) => video.videoCode.isNotEmpty && !seen.contains(video.videoCode))];
+}
+
+/// 播放列表按 id 合并，规则同上。
+List<Playlist> mergePlaylistsById(List<Playlist> local, List<Playlist> remote) {
+  final seen = {for (final playlist in remote) playlist.id};
+  return [...remote, ...local.where((playlist) => playlist.id.isNotEmpty && !seen.contains(playlist.id))];
 }

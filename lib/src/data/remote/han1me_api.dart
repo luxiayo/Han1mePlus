@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:html/parser.dart' as html_parser;
@@ -322,9 +323,10 @@ class Han1meApi {
 
   Future<void> updatePassword(String baseUrl, String userId, String token, String oldPassword, String password, String confirmation) => _form('$baseUrl/user/$userId', {'_token': token, '_method': 'patch', 'type': 'password', 'password_old': oldPassword, 'password_new': password, 'password_new_confirm': confirmation}, token);
 
-  Future<RemoteLibrary> library(String baseUrl, String userId, {void Function(int step)? onStep}) async {
+  Future<RemoteLibrary> library(String baseUrl, String userId, {void Function(int step)? onStep, int? maxSubscriptionPages}) async {
     // 错峰请求：瞬时并发会触发 Cloudflare 限流（429/403），每个请求间隔 250ms。
     // onStep 上报当前步骤（0-4），收藏页加载时给用户分步进度提示。
+    // maxSubscriptionPages 非空时订阅只抓前 N 页（增量刷新用），null = 全量。
     void report(int step) => onStep?.call(step);
     report(0);
     final pages = await _staggered([
@@ -337,10 +339,11 @@ class Han1meApi {
     final subscriptionPage = await _document('$baseUrl/subscriptions?page=1');
     final subscriptionArtists = _subscriptionArtists(baseUrl, subscriptionPage);
     final subscriptionPages = _pageCount(subscriptionPage);
+    final lastSubscriptionPage = maxSubscriptionPages == null ? subscriptionPages : math.min(subscriptionPages, math.max(1, maxSubscriptionPages));
     final subscriptionVideos = <FollowingVideo>[
       ..._subscriptionVideos(baseUrl, subscriptionPage),
       for (final page in await _staggered([
-        for (var number = 2; number <= subscriptionPages; number++) () => _document('$baseUrl/subscriptions?page=$number'),
+        for (var number = 2; number <= lastSubscriptionPage; number++) () => _document('$baseUrl/subscriptions?page=$number'),
       ]))
         ..._subscriptionVideos(baseUrl, page),
     ];
