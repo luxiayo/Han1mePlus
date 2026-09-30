@@ -50,6 +50,21 @@ int DpiScale(int value, UINT dpi) {
   return static_cast<int>(static_cast<double>(value) * dpi / 96.0 + 0.5);
 }
 
+// 窗口位置/大小持久化：存 HKCU\Software\Han1mePlus 的 WINDOWPLACEMENT
+// 二进制（含还原位置/大小与是否最大化），与 macOS 端 UserDefaults 方案对齐。
+bool LoadWindowPlacement(WINDOWPLACEMENT& placement) {
+  DWORD size = sizeof(WINDOWPLACEMENT);
+  const auto result = RegGetValueW(HKEY_CURRENT_USER, L"Software\\Han1mePlus", L"WindowPlacement", RRF_RT_REG_BINARY, nullptr, &placement, &size);
+  return result == ERROR_SUCCESS && size == sizeof(WINDOWPLACEMENT) && placement.length == sizeof(WINDOWPLACEMENT);
+}
+
+void SaveWindowPlacement(HWND window) {
+  WINDOWPLACEMENT placement{};
+  placement.length = sizeof(WINDOWPLACEMENT);
+  if (!GetWindowPlacement(window, &placement)) return;
+  RegSetKeyValueW(HKEY_CURRENT_USER, L"Software\\Han1mePlus", L"WindowPlacement", REG_BINARY, &placement, sizeof(placement));
+}
+
 }
 
 struct AppWindow {
@@ -93,6 +108,7 @@ LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wparam, LPARAM lpa
       }
       return 0;
     case WM_DESTROY:
+      SaveWindowPlacement(window);
       PostQuitMessage(0);
       return 0;
   }
@@ -118,9 +134,16 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int show_command)
 
   AppWindow app;
   const auto dpi = SystemDpi();
-  const auto width = DpiScale(1280, dpi);
-  const auto height = DpiScale(720, dpi);
-  const auto window = CreateWindow(class_name, L"Han1me+", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, width, height, nullptr, nullptr, instance, &app);
+  // 还原上次关闭时的窗口位置/大小：仅当记录仍落在某块显示器上才应用
+  // （拔掉外接显示器后回退默认值）；记录了最大化则按最大化显示。
+  WINDOWPLACEMENT restored{};
+  const auto has_placement = LoadWindowPlacement(restored) && MonitorFromRect(&restored.rcNormalPosition, MONITOR_DEFAULTTONULL) != nullptr;
+  const auto width = has_placement ? restored.rcNormalPosition.right - restored.rcNormalPosition.left : DpiScale(1280, dpi);
+  const auto height = has_placement ? restored.rcNormalPosition.bottom - restored.rcNormalPosition.top : DpiScale(720, dpi);
+  const auto x = has_placement ? restored.rcNormalPosition.left : CW_USEDEFAULT;
+  const auto y = has_placement ? restored.rcNormalPosition.top : CW_USEDEFAULT;
+  const auto restore_show = has_placement && restored.showCmd == SW_SHOWMAXIMIZED ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL;
+  const auto window = CreateWindow(class_name, L"Han1me+", WS_OVERLAPPEDWINDOW, x, y, width, height, nullptr, nullptr, instance, &app);
   if (window == nullptr) return EXIT_FAILURE;
 
   RECT bounds{};
@@ -132,9 +155,9 @@ int APIENTRY wWinMain(HINSTANCE instance, HINSTANCE, wchar_t*, int show_command)
   const auto flutter_view = app.controller->view()->GetNativeWindow();
   SetParent(flutter_view, window);
   SetFocus(flutter_view);
-  app.controller->engine()->SetNextFrameCallback([window]() { ShowWindow(window, SW_SHOWNORMAL); });
+  app.controller->engine()->SetNextFrameCallback([window, restore_show]() { ShowWindow(window, restore_show); });
   app.controller->ForceRedraw();
-  ShowWindow(window, show_command);
+  ShowWindow(window, restore_show == SW_SHOWMAXIMIZED ? SW_SHOWMAXIMIZED : show_command);
 
   MSG message;
   while (GetMessage(&message, nullptr, 0, 0)) {
