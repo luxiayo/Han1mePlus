@@ -8,6 +8,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../data/han1me_repository.dart';
 import '../../domain/models/video.dart';
 import '../settings/settings_controller.dart';
+import '../shared/video_card.dart';
 
 final previewsProvider = FutureProvider.autoDispose.family<PreviewFeed, String>((ref, month) async {
   final settings = await ref.watch(settingsProvider.future);
@@ -76,7 +77,25 @@ class PreviewsPage extends ConsumerWidget {
                   : CustomScrollView(
                       slivers: [
                         SliverToBoxAdapter(child: _PreviewHeader(feed: feed)),
-                        SliverList.builder(itemCount: feed.items.length, itemBuilder: (context, index) => _PreviewTile(item: feed.items[index])),
+                        SliverLayoutBuilder(
+                          builder: (context, constraints) {
+                            // 纵向卡片网格：与紧凑影片卡同款的列数推导
+                            //（目标卡宽 130、下限用影片卡片每行数量设置、上限 8）。
+                            const crossAxisSpacing = 10.0;
+                            final cardsPerRow = ref.watch(settingsProvider).valueOrNull?.searchCardsPerRow ?? 2;
+                            final columns = (constraints.crossAxisExtent / 130).floor().clamp(cardsPerRow, 8).toInt();
+                            final textScaler = MediaQuery.textScalerOf(context);
+                            final cardWidth = (constraints.crossAxisExtent - crossAxisSpacing * (columns - 1)) / columns;
+                            final cardHeight = cardWidth * 4 / 3 + textScaler.scale(40) + 2 + textScaler.scale(17) + 16;
+                            return SliverPadding(
+                              padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                              sliver: SliverGrid(
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, mainAxisSpacing: 12, crossAxisSpacing: crossAxisSpacing, mainAxisExtent: cardHeight),
+                                delegate: SliverChildBuilderDelegate((context, index) => _PreviewCard(item: feed.items[index]), childCount: feed.items.length),
+                              ),
+                            );
+                          },
+                        ),
                         const SliverToBoxAdapter(child: SizedBox(height: 24)),
                       ],
                     ),
@@ -197,11 +216,6 @@ class _PreviewHeader extends StatelessWidget {
   Widget build(BuildContext context) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (feed.coverUrl != null && feed.coverUrl!.isNotEmpty)
-            AspectRatio(
-              aspectRatio: 16 / 8,
-              child: CachedNetworkImage(imageUrl: feed.coverUrl!, fit: BoxFit.cover, memCacheWidth: 960, fadeInDuration: Duration.zero),
-            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
             child: Text(feed.title, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700)),
@@ -211,110 +225,64 @@ class _PreviewHeader extends StatelessWidget {
       );
 }
 
-class _PreviewTile extends StatelessWidget {
-  const _PreviewTile({required this.item});
+class _PreviewCard extends StatelessWidget {
+  const _PreviewCard({required this.item});
 
   final PreviewItem item;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final l10n = AppLocalizations.of(context)!;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Material(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: () => context.push('/video/${item.id}'),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                height: 176,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CachedNetworkImage(imageUrl: item.coverUrl, fit: BoxFit.cover, memCacheWidth: 720, fadeInDuration: Duration.zero),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Colors.transparent, Colors.black.withValues(alpha: 0.72)],
-                          stops: const [0.4, 1],
-                        ),
-                      ),
-                    ),
-                    if (item.releaseDate != null)
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: _PreviewBadge(text: item.releaseDate!),
-                      ),
-                    Positioned(
-                      left: 14,
-                      right: 14,
-                      bottom: 12,
-                      child: Row(
-                        children: [
-                          const Icon(Icons.play_circle_fill, color: Colors.white, size: 28),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(l10n.watchVideo, style: theme.textTheme.labelLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.w700))),
-                          const Icon(Icons.arrow_forward, color: Colors.white),
-                        ],
-                      ),
-                    ),
-                  ],
+    final textScaler = MediaQuery.textScalerOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cacheWidth = videoCardCacheWidth(constraints.maxWidth, MediaQuery.devicePixelRatioOf(context));
+        return Material(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            // 预览图查看器移到长按：卡面只留封面+标题+厂牌，保证纵向紧凑。
+            onTap: () => context.push('/video/${item.id}'),
+            onLongPress: item.previewImages.isNotEmpty ? () => _showPreviewImages(context, item, 0) : null,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AspectRatio(
+                  aspectRatio: 3 / 4,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CachedNetworkImage(imageUrl: item.coverUrl, fit: BoxFit.cover, memCacheWidth: cacheWidth, fadeInDuration: Duration.zero),
+                      if (item.releaseDate != null) Positioned(top: 6, right: 6, child: _PreviewBadge(text: item.releaseDate!)),
+                    ],
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    if (item.videoTitle != null) Padding(padding: const EdgeInsets.only(top: 4), child: Text(item.videoTitle!, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.primary))),
-                    if (item.brand != null) Padding(padding: const EdgeInsets.only(top: 6), child: Text(item.brand!, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline))),
-                    if (item.description != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(item.description!, maxLines: 3, overflow: TextOverflow.ellipsis)),
-                    if (item.tags.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Wrap(spacing: 6, runSpacing: 4, children: item.tags.take(5).map((tag) => Chip(label: Text(tag), visualDensity: VisualDensity.compact, materialTapTargetSize: MaterialTapTargetSize.shrinkWrap)).toList())),
-                  ],
-                ),
-              ),
-              if (item.previewImages.isNotEmpty) ...[
-                const Divider(height: 1),
+                const SizedBox(height: 6),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(l10n.previewImages(item.previewImages.length), style: theme.textTheme.labelLarge),
-                      const SizedBox(height: 8),
+                      // 标题盒固定高度（2×14×1.4=39.2 ≤ 40），行高显式钉死不依赖字体度量
                       SizedBox(
-                        height: 76,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: item.previewImages.length,
-                          separatorBuilder: (context, index) => const SizedBox(width: 8),
-                          itemBuilder: (context, index) => InkWell(
-                            borderRadius: BorderRadius.circular(6),
-                            onTap: () => _showPreviewImages(context, item, index),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: AspectRatio(aspectRatio: 4 / 3, child: CachedNetworkImage(imageUrl: item.previewImages[index], fit: BoxFit.cover, memCacheWidth: 240, fadeInDuration: Duration.zero)),
-                            ),
-                          ),
-                        ),
+                        height: textScaler.scale(40),
+                        child: Text(item.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium?.copyWith(fontSize: 14, fontWeight: FontWeight.w600, height: 1.4)),
+                      ),
+                      const SizedBox(height: 2),
+                      SizedBox(
+                        height: textScaler.scale(17),
+                        child: Text(item.brand ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.outline)),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 10),
               ],
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
