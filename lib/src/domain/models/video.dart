@@ -94,6 +94,11 @@ class VideoSource {
   final String? type;
 }
 
+extension VideoSourceX on VideoSource {
+  /// HLS（m3u8）是流媒体清单文本，下载通道只支持直连文件，须排除。
+  bool get isHls => (type ?? '').contains('mpegurl') || url.toLowerCase().contains('.m3u8');
+}
+
 class VideoDetail {
   const VideoDetail({
     required this.id,

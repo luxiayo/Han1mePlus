@@ -201,7 +201,7 @@ class Han1meApi {
   Future<VideoDetail> video(String baseUrl, String id) async {
     final document = await _document('$baseUrl/watch?v=$id', referer: '$baseUrl/');
     final player = document.querySelector('video#player');
-    final sources = (player == null ? const <dom.Element>[] : player.querySelectorAll('source'))
+    var sources = (player == null ? const <dom.Element>[] : player.querySelectorAll('source'))
         .map((source) => VideoSource(
                quality: source.attributes['size'] ?? 'Default',
               url: _absolute(baseUrl, source.attributes['src']),
@@ -209,6 +209,31 @@ class Han1meApi {
             ))
         .where((source) => source.url.isNotEmpty)
         .toList();
+    // 镜像站（hanimeone 等）的播放器没有 <source> 标签，源在内联 JS 里：
+    // const source = '<hls-url>';（Plyr + hls.js 播放）。先提取 HLS 保底可播；
+    // 随后优先改用官方下载页 /download?v= 的全清晰度直连 MP4 表格
+    // （1080p/720p/480p/360p，data-url 为签名直链）——播放和下载都用它，
+    // 解析失败才回退 HLS + preload 直连 MP4。
+    if (sources.isEmpty) {
+      for (final script in document.querySelectorAll('script')) {
+        final match = RegExp(r"const\s+source\s*=\s*'([^']+)'").firstMatch(script.text);
+        if (match == null) continue;
+        final url = _absolute(baseUrl, match.group(1)!.trim());
+        if (url.isEmpty) continue;
+        sources = [VideoSource(quality: 'Default', url: url, type: 'application/vnd.apple.mpegurl')];
+        break;
+      }
+      final official = await _officialDownloads(baseUrl, id);
+      if (official.isNotEmpty) {
+        sources = official;
+      } else {
+        final preload = document.querySelector("link[rel='preload'][as='video']")?.attributes['href'];
+        final url = _absolute(baseUrl, preload?.trim() ?? '');
+        if (url.isNotEmpty && !sources.any((source) => source.url == url)) {
+          sources = [...sources, VideoSource(quality: 'Default', url: url, type: 'video/mp4')];
+        }
+      }
+    }
     final title = (document.querySelector('meta[property="og:title"]')?.attributes['content'] ?? document.querySelector('title')?.text ?? '').trim();
     final finalTitle = title.contains('- Hanime1.me') || title.contains('- H\u52d5\u6f2b/\u88cf\u756a') ? title.split(' - ').first.trim() : title;
     final cover = _absolute(baseUrl, player?.attributes['poster'] ?? document.querySelector('meta[property="og:image"]')?.attributes['content']);
@@ -353,6 +378,26 @@ class Han1meApi {
       return Playlist(id: Uri.tryParse(href)?.queryParameters['list'] ?? RegExp(r'[?&]list=([^&]+)').firstMatch(href)?.group(1) ?? '', title: element.querySelector('.title, .playlist-title')?.text.trim() ?? '', count: int.tryParse(RegExp(r'\d+').firstMatch(element.querySelector('.stat-item, .playlist-count')?.text ?? '')?.group(0) ?? '') ?? 0, coverUrl: _absolute(baseUrl, element.querySelector('img.main-thumb, img')?.attributes['src']));
     }).where((item) => item.id.isNotEmpty && item.title.isNotEmpty).toList(growable: false);
     return RemoteLibrary(watchLater: _libraryVideos(baseUrl, pages[0]), favorites: _libraryVideos(baseUrl, pages[1]), playlists: playlists, subscriptionArtists: subscriptionArtists, subscriptions: subscriptionVideos, history: _libraryVideos(baseUrl, pages[3]), csrfToken: [playlistPage, pages[0], pages[1], pages[3]].map((page) => page.querySelector('meta[name="csrf-token"]')?.attributes['content'] ?? page.querySelector('input[name="_token"]')?.attributes['value']).whereType<String>().firstOrNull);
+  }
+
+  /// 官方下载页 `/download?v=<id>` 的清晰度表格：每行含画质文字（如
+  /// 「全高清畫質 (1080p)」）与 a[data-url] 直连 MP4（签名链接）。
+  /// 解析失败返回空列表，由调用方回退到 HLS/preload 兜底。
+  Future<List<VideoSource>> _officialDownloads(String baseUrl, String id) async {
+    try {
+      final document = await _document('$baseUrl/download?v=$id', referer: '$baseUrl/watch?v=$id');
+      final sources = <VideoSource>[];
+      for (final row in document.querySelectorAll('table.download-table tr')) {
+        final link = row.querySelector("a[data-url]");
+        final url = _absolute(baseUrl, link?.attributes['data-url']?.trim() ?? '');
+        final quality = RegExp(r'(\d+)\s*p').firstMatch(row.text)?.group(1);
+        if (url.isEmpty || quality == null || sources.any((source) => source.quality == quality)) continue;
+        sources.add(VideoSource(quality: quality, url: url, type: 'video/mp4'));
+      }
+      return sources;
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<void> saveToPlaylist(String baseUrl, String token, String listId, String videoId, bool checked) => _form('$baseUrl/save', {'_token': token, 'input_id': listId, 'video_id': videoId, 'is_checked': '$checked', 'user_id': ''}, token);
