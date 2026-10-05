@@ -387,6 +387,7 @@
   "favorite": "收藏",
   "download": "下载",
   "share": "分享",
+  "openInBrowser": "用浏览器打开",
   "selectDownloadQuality": "选择下载清晰度",
   "startDownload": "开始下载",
   "addedToDownloadQueue": "已加入下载队列",

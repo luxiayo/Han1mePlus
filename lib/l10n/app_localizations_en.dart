@@ -745,6 +745,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get share => 'Share';
 
   @override
+  String get openInBrowser => 'Open in Browser';
+
+  @override
   String get selectDownloadQuality => 'Select Download Quality';
 
   @override

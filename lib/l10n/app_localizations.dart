@@ -1407,6 +1407,12 @@ abstract class AppLocalizations {
   /// **'Share'**
   String get share;
 
+  /// No description provided for @openInBrowser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open in Browser'**
+  String get openInBrowser;
+
   /// No description provided for @selectDownloadQuality.
   ///
   /// In en, this message translates to:

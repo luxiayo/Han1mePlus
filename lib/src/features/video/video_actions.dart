@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:m3e_core/m3e_core.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../data/han1me_repository.dart';
@@ -32,11 +33,14 @@ class VideoActionBar extends ConsumerWidget {
     final persistedFavorite = (remote?.favorites ?? library.favorites).any((item) => item.videoCode == video.id);
     final inFavorites = ref.watch(favoriteOverrideProvider(video.id)) ?? persistedFavorite;
     final l10n = AppLocalizations.of(context)!;
+    // HLS（m3u8 清单）不可下载，下载动作只认直连文件源；仅剩 HLS 时禁用下载。
+    final downloadable = video.sources.where((source) => !source.isHls).toList();
     final actions = <Widget>[
       IconButton(tooltip: l10n.addToPlaylist, icon: Icon(inWatchLater ? Icons.playlist_add_check : Icons.playlist_add), onPressed: () => account == null ? _pickLocalPlaylist(context, ref, library) : _pickPlaylist(context, ref, video.csrfToken ?? remote?.csrfToken ?? account.csrfToken, remote)),
       IconButton(tooltip: l10n.favorite, icon: Icon(inFavorites ? Icons.favorite : Icons.favorite_border), onPressed: () => _toggleFavorite(ref, account == null ? null : video.csrfToken ?? account.csrfToken, account == null ? null : video.currentUserId ?? account.id, !inFavorites)),
-      IconButton(tooltip: l10n.download, icon: const Icon(Icons.download_outlined), onPressed: video.sources.isEmpty ? null : () => _autoDownload(context, ref), onLongPress: video.sources.isEmpty ? null : () => _showDownloadPicker(context, ref)),
-      IconButton(tooltip: l10n.share, icon: const Icon(Icons.share_outlined), onPressed: () => Share.share('${video.title} (${video.id})', subject: video.title)),
+      IconButton(tooltip: l10n.download, icon: const Icon(Icons.download_outlined), onPressed: downloadable.isEmpty ? null : () => _autoDownload(context, ref), onLongPress: downloadable.isEmpty ? null : () => _showDownloadPicker(context, ref)),
+      IconButton(tooltip: l10n.openInBrowser, icon: const Icon(Icons.open_in_new), onPressed: () { final baseUrl = ref.read(settingsProvider).valueOrNull?.resolvedBaseUrl ?? 'https://hanime1.com'; launchUrl(Uri.parse('$baseUrl/watch?v=${video.id}'), mode: LaunchMode.externalApplication); }),
+      IconButton(tooltip: l10n.share, icon: const Icon(Icons.share_outlined), onPressed: () { final baseUrl = ref.read(settingsProvider).valueOrNull?.resolvedBaseUrl ?? 'https://hanime1.com'; Share.share('$baseUrl/watch?v=${video.id}', subject: video.title); }),
     ];
     return vertical
         ? M3EVerticalFloatingToolbar(expanded: true, content: Column(mainAxisSize: MainAxisSize.min, children: actions))
@@ -121,7 +125,9 @@ class VideoActionBar extends ConsumerWidget {
   }
 
   Future<void> _showDownloadPicker(BuildContext context, WidgetRef ref) async {
-    var source = video.sources.first;
+    final downloadable = video.sources.where((source) => !source.isHls).toList();
+    if (downloadable.isEmpty) return;
+    var source = downloadable.first;
     final picked = await showModalBottomSheet<VideoSource>(
       context: context,
       builder: (sheetContext) => StatefulBuilder(
@@ -133,7 +139,7 @@ class VideoActionBar extends ConsumerWidget {
               RadioGroup<VideoSource>(
                 groupValue: source,
                 onChanged: (value) => setSheet(() => source = value!),
-                child: Column(mainAxisSize: MainAxisSize.min, children: video.sources.map((item) => RadioListTile<VideoSource>(value: item, title: Text(item.quality))).toList()),
+                child: Column(mainAxisSize: MainAxisSize.min, children: downloadable.map((item) => RadioListTile<VideoSource>(value: item, title: Text(item.quality))).toList()),
               ),
               const SizedBox(height: 8),
               FilledButton(onPressed: () => Navigator.pop(sheetContext, source), child: Text(AppLocalizations.of(context)!.startDownload)),
@@ -150,8 +156,10 @@ class VideoActionBar extends ConsumerWidget {
     final settings = await ref.read(settingsProvider.future);
     if (!context.mounted) return;
     final preferred = settings.downloadQuality;
+    final downloadable = video.sources.where((source) => !source.isHls).toList();
+    if (downloadable.isEmpty) return;
     int qualityOf(VideoSource source) => int.tryParse(RegExp(r'\d+').firstMatch(source.quality)?.group(0) ?? '') ?? 0;
-    final source = video.sources.reduce((best, item) {
+    final source = downloadable.reduce((best, item) {
       final bestDistance = (qualityOf(best) - preferred).abs();
       final itemDistance = (qualityOf(item) - preferred).abs();
       if (itemDistance != bestDistance) return itemDistance < bestDistance ? item : best;
@@ -162,6 +170,9 @@ class VideoActionBar extends ConsumerWidget {
 
   Future<void> _enqueueDownload(BuildContext context, WidgetRef ref, VideoSource source) async {
     try {
+      // 下载控制器 build（等 settings、恢复下载队列、建目录）完成前 _root
+      // 未初始化；冷启动立刻点下载会踩 LateInitializationError，先等它就绪。
+      await ref.read(downloadProvider.future);
       await ref.read(downloadProvider.notifier).create(video, source, 'default');
       if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context)!.addedToDownloadQueue)));
     } catch (error) {

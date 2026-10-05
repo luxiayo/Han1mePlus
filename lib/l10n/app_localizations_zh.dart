@@ -724,6 +724,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get share => '分享';
 
   @override
+  String get openInBrowser => '用浏览器打开';
+
+  @override
   String get selectDownloadQuality => '选择下载清晰度';
 
   @override
@@ -2565,6 +2568,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get share => '分享';
+
+  @override
+  String get openInBrowser => '用瀏覽器開啟';
 
   @override
   String get selectDownloadQuality => '選擇下載畫質';
