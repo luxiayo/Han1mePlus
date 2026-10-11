@@ -24,7 +24,7 @@ class UpdateInstaller {
     final supportedAsset = Platform.isAndroid && path.extension(uri?.path ?? '').toLowerCase() == '.apk' ||
         Platform.isWindows && path.extension(uri?.path ?? '').toLowerCase() == '.exe';
     if (!supportedAsset) {
-      final target = Uri.parse(url.trim().isEmpty ? 'https://github.com/1wc10086/Han1mePlus/releases/latest' : url);
+      final target = Uri.parse(url.trim().isEmpty ? 'https://github.com/luxiayo/Han1mePlus/releases/latest' : url);
       if (!await launchUrl(target, mode: LaunchMode.externalApplication)) {
         throw StateError('Unable to open update URL');
       }
