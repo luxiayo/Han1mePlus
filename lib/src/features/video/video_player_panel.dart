@@ -19,6 +19,7 @@ import '../../data/local/watch_repository.dart';
 import '../../data/remote/han1me_api.dart';
 import '../../domain/models/video.dart';
 import '../settings/settings_controller.dart';
+import '../../core/site_url.dart';
 import 'video_player_controls.dart';
 import 'video_player_surface.dart';
 
@@ -237,7 +238,7 @@ class _VideoPlayerPanelState extends ConsumerState<VideoPlayerPanel> with RouteA
             Uri.parse(source.url),
             httpHeaders: {
               'User-Agent': Han1meApi.userAgent,
-              'Referer': getchuTrailer ? 'https://www.getchu.com/' : '${settings.resolvedBaseUrl}/watch?v=${widget.video.id}',
+              'Referer': getchuTrailer ? 'https://www.getchu.com/' : siteEndpointUrl(settings.resolvedBaseUrl, 'watch?v=${widget.video.id}'),
               if (getchuTrailer) 'Cookie': 'getchu_adalt_flag=getchu.com; gc=gc',
             },
           );

@@ -387,6 +387,7 @@
   "favorite": "Favorite",
   "download": "Download",
   "share": "Share",
+  "viewCountUnit": "×10k",
   "openInBrowser": "Open in Browser",
   "selectDownloadQuality": "Select Download Quality",
   "startDownload": "Start Download",

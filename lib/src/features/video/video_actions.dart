@@ -16,6 +16,7 @@ import '../account/account_controller.dart';
 import '../library/playlists/playlist_shared.dart';
 import '../library/remote_library_controller.dart';
 import '../settings/settings_controller.dart';
+import '../../core/site_url.dart';
 import 'video_controller.dart';
 
 class VideoActionBar extends ConsumerWidget {
@@ -39,8 +40,8 @@ class VideoActionBar extends ConsumerWidget {
       IconButton(tooltip: l10n.addToPlaylist, icon: Icon(inWatchLater ? Icons.playlist_add_check : Icons.playlist_add), onPressed: () => account == null ? _pickLocalPlaylist(context, ref, library) : _pickPlaylist(context, ref, video.csrfToken ?? remote?.csrfToken ?? account.csrfToken, remote)),
       IconButton(tooltip: l10n.favorite, icon: Icon(inFavorites ? Icons.favorite : Icons.favorite_border), onPressed: () => _toggleFavorite(ref, account == null ? null : video.csrfToken ?? account.csrfToken, account == null ? null : video.currentUserId ?? account.id, !inFavorites)),
       IconButton(tooltip: l10n.download, icon: const Icon(Icons.download_outlined), onPressed: downloadable.isEmpty ? null : () => _autoDownload(context, ref), onLongPress: downloadable.isEmpty ? null : () => _showDownloadPicker(context, ref)),
-      IconButton(tooltip: l10n.openInBrowser, icon: const Icon(Icons.open_in_new), onPressed: () { final baseUrl = ref.read(settingsProvider).valueOrNull?.resolvedBaseUrl ?? 'https://hanime1.com'; launchUrl(Uri.parse('$baseUrl/watch?v=${video.id}'), mode: LaunchMode.externalApplication); }),
-      IconButton(tooltip: l10n.share, icon: const Icon(Icons.share_outlined), onPressed: () { final baseUrl = ref.read(settingsProvider).valueOrNull?.resolvedBaseUrl ?? 'https://hanime1.com'; Share.share('$baseUrl/watch?v=${video.id}', subject: video.title); }),
+      IconButton(tooltip: l10n.openInBrowser, icon: const Icon(Icons.open_in_new), onPressed: () { final baseUrl = ref.read(settingsProvider).valueOrNull?.resolvedBaseUrl ?? 'https://hanime1.com'; launchUrl(Uri.parse(siteEndpointUrl(baseUrl, 'watch?v=${video.id}')), mode: LaunchMode.externalApplication); }),
+      IconButton(tooltip: l10n.share, icon: const Icon(Icons.share_outlined), onPressed: () { final baseUrl = ref.read(settingsProvider).valueOrNull?.resolvedBaseUrl ?? 'https://hanime1.com'; Share.share(siteEndpointUrl(baseUrl, 'watch?v=${video.id}'), subject: video.title); }),
     ];
     return vertical
         ? M3EVerticalFloatingToolbar(expanded: true, content: Column(mainAxisSize: MainAxisSize.min, children: actions))

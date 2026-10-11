@@ -745,6 +745,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get share => 'Share';
 
   @override
+  String get viewCountUnit => '×10k';
+
+  @override
   String get openInBrowser => 'Open in Browser';
 
   @override

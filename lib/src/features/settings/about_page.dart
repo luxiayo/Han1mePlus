@@ -7,6 +7,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../core/app_dio.dart';
 import '../../core/app_info.dart';
 import '../../data/remote/update_checker.dart';
+import '../../domain/models/update_info.dart';
 import '../../data/local/update_installer.dart';
 import 'settings_controller.dart';
 import 'settings_card_list.dart';

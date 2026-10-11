@@ -16,6 +16,7 @@ import '../../domain/models/video.dart';
 import '../../data/local/library_repository.dart';
 import '../../core/settings.dart';
 import '../settings/settings_controller.dart';
+import '../../core/video_view_count.dart';
 import '../shared/video_card.dart';
 import 'explore_controller.dart';
 import 'home_section_layout.dart';
@@ -103,13 +104,12 @@ class _HomeFeedBody extends ConsumerWidget {
     if (!(settings.exemptSubscribedAuthors && subscribedAuthor)) {
       if (settings.blockedVideoTitleKeywords.any((keyword) => video.title.toLowerCase().contains(keyword.toLowerCase()))) return false;
       if (settings.blockedAuthors.any((author) => (video.artist ?? '').toLowerCase().contains(author.toLowerCase()))) return false;
-      if (_duration(video.duration) < settings.minimumVideoDurationSeconds || _views(video.views) < settings.minimumVideoViews) return false;
+      if (_duration(video.duration) < settings.minimumVideoDurationSeconds || !meetsMinimumVideoViews(video.views, settings.minimumVideoViews)) return false;
     }
     return true;
   }
 
   int _duration(String? text) => (text?.split(':').map(int.tryParse).toList() ?? const <int?>[]).fold<int>(0, (total, unit) => unit == null ? total : total * 60 + unit);
-  int _views(String? text) => int.tryParse(RegExp(r'[\d,.]+').firstMatch(text ?? '')?.group(0)?.replaceAll(',', '') ?? '') ?? 0;
 }
 
 String _localizedSectionTitle(HomeSection section, SearchOptionCatalog? catalog, String locale) {

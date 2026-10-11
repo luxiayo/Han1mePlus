@@ -1407,6 +1407,12 @@ abstract class AppLocalizations {
   /// **'Share'**
   String get share;
 
+  /// No description provided for @viewCountUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'×10k'**
+  String get viewCountUnit;
+
   /// No description provided for @openInBrowser.
   ///
   /// In en, this message translates to:

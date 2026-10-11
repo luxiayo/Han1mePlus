@@ -724,6 +724,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get share => '分享';
 
   @override
+  String get viewCountUnit => '万';
+
+  @override
   String get openInBrowser => '用浏览器打开';
 
   @override
@@ -2568,6 +2571,9 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get share => '分享';
+
+  @override
+  String get viewCountUnit => '萬';
 
   @override
   String get openInBrowser => '用瀏覽器開啟';
