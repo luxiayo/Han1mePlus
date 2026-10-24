@@ -35,10 +35,10 @@ class LibraryRepository {
 final libraryProvider = AsyncNotifierProvider<LibraryController, LibraryState>(LibraryController.new);
 class LibraryController extends AsyncNotifier<LibraryState> {
   @override Future<LibraryState> build() => ref.read(libraryRepositoryProvider).load();
-  FollowingVideo _item(VideoDetail video) => FollowingVideo(videoCode: video.id, title: video.title, coverUrl: video.coverUrl, artistName: video.artist, artistAvatarUrl: video.artistAvatarUrl, genre: video.genre, duration: video.duration, views: video.views, rating: video.rating, uploadTime: video.uploadDate, addedAt: DateTime.now().millisecondsSinceEpoch);
+  FollowingVideo _item(VideoDetail video, {bool pendingUpload = false}) => FollowingVideo(videoCode: video.id, title: video.title, coverUrl: video.coverUrl, artistName: video.artist, artistAvatarUrl: video.artistAvatarUrl, genre: video.genre, duration: video.duration, views: video.views, rating: video.rating, uploadTime: video.uploadDate, addedAt: DateTime.now().millisecondsSinceEpoch, pendingUpload: pendingUpload);
   Future<void> _save(LibraryState value) async { state = AsyncData(value); await ref.read(libraryRepositoryProvider).save(value); }
-  Future<void> setWatchLater(VideoDetail video, bool enabled) async { final current = state.value ?? const LibraryState(); final items = current.watchLater.where((item) => item.videoCode != video.id).toList(); if (enabled) items.insert(0, _item(video)); await _save(_copy(current, watchLater: items)); }
-  Future<void> setFavorite(VideoDetail video, bool enabled) async { final current = state.value ?? const LibraryState(); final items = current.favorites.where((item) => item.videoCode != video.id).toList(); if (enabled) items.insert(0, _item(video)); await _save(_copy(current, favorites: items)); }
+  Future<void> setWatchLater(VideoDetail video, bool enabled) async { final current = state.value ?? const LibraryState(); final items = current.watchLater.where((item) => item.videoCode != video.id).toList(); if (enabled) items.insert(0, _item(video, pendingUpload: true)); await _save(_copy(current, watchLater: items)); }
+  Future<void> setFavorite(VideoDetail video, bool enabled) async { final current = state.value ?? const LibraryState(); final items = current.favorites.where((item) => item.videoCode != video.id).toList(); if (enabled) items.insert(0, _item(video, pendingUpload: true)); await _save(_copy(current, favorites: items)); }
   Future<void> removeFavorites(Set<String> videoCodes) async { final current = state.value ?? const LibraryState(); final items = current.favorites.where((item) => !videoCodes.contains(item.videoCode)).toList(); if (items.length == current.favorites.length) return; await _save(_copy(current, favorites: items)); }
   Future<void> removeWatchLater(Set<String> videoCodes) async { final current = state.value ?? const LibraryState(); final items = current.watchLater.where((item) => !videoCodes.contains(item.videoCode)).toList(); if (items.length == current.watchLater.length) return; await _save(_copy(current, watchLater: items)); }
   Future<String> createPlaylist(String title, {String description = ''}) async {
@@ -97,10 +97,11 @@ class LibraryController extends AsyncNotifier<LibraryState> {
       final key = _artistId(artist.name);
       videos[key] = mergeVideosByVideoCode(current.subscriptionVideos[key] ?? const [], remote.subscriptions.where((video) => video.artistName == artist.name).toList());
     }
-    // 合并而非整表替换：登出期间加进本地库、云端快照里没有的条目不能被
-    // 下一次同步抹掉。云端为权威顺序，本地独有条目按原顺序追加在后。
-    // 代价：云端已删除但本地缓存仍有的条目会在登出视图里保留——登录态
-    // UI 始终以远端数据为准，可接受。
+    // 云端为权威顺序。本地仅保留带 pendingUpload 标记（登出期间加入、尚未
+    // 同步到云端）的独有条目；无标记且云端缺失的条目视为已在站点删除——
+    // 若整表合并保留，App 内删除的稍后观看/收藏会在每次冷启动回魂。
+    final watchLaterSeen = {for (final video in remote.watchLater) video.videoCode};
+    final favoriteSeen = {for (final video in remote.favorites) video.videoCode};
     final localOnlyArtists = current.artists.where((artist) => artist.id.isNotEmpty && artists.every((remoteArtist) => remoteArtist.id != artist.id));
     for (final artist in localOnlyArtists) {
       final cached = current.subscriptionVideos[artist.id];
@@ -108,8 +109,8 @@ class LibraryController extends AsyncNotifier<LibraryState> {
     }
     await _save(_copy(
       current,
-      watchLater: mergeVideosByVideoCode(current.watchLater, remote.watchLater),
-      favorites: mergeVideosByVideoCode(current.favorites, remote.favorites),
+      watchLater: [...remote.watchLater, ...current.watchLater.where((video) => video.videoCode.isNotEmpty && video.pendingUpload && !watchLaterSeen.contains(video.videoCode))],
+      favorites: [...remote.favorites, ...current.favorites.where((video) => video.videoCode.isNotEmpty && video.pendingUpload && !favoriteSeen.contains(video.videoCode))],
       playlists: mergePlaylistsById(current.playlists, remote.playlists),
       artists: [...artists, ...localOnlyArtists],
       subscriptionVideos: videos,
@@ -126,11 +127,12 @@ class LibraryController extends AsyncNotifier<LibraryState> {
   String _artistId(String name) => name.trim().toLowerCase().replaceAll(RegExp(r'\s+'), '_');
 }
 
-/// 云端为权威顺序，本地独有（videoCode 未出现在云端）条目按原顺序追加在后。
+/// 云端为权威顺序，本地带 pendingUpload 标记且云端缺失的条目按原顺序追加
+/// 在后（登出期间加入、尚未同步到云端）；无标记的本地独有条目视为已删除。
 /// 空 videoCode 的坏条目直接丢弃（无法去重也无法打开）。
 List<FollowingVideo> mergeVideosByVideoCode(List<FollowingVideo> local, List<FollowingVideo> remote) {
   final seen = {for (final video in remote) video.videoCode};
-  return [...remote, ...local.where((video) => video.videoCode.isNotEmpty && !seen.contains(video.videoCode))];
+  return [...remote, ...local.where((video) => video.videoCode.isNotEmpty && video.pendingUpload && !seen.contains(video.videoCode))];
 }
 
 /// 播放列表按 id 合并，规则同上。

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
+import '../../core/app_log.dart';
 import '../../data/han1me_repository.dart';
 import '../../data/local/account_store.dart';
 import '../../domain/models/account.dart';
@@ -52,7 +53,7 @@ class AccountController extends AsyncNotifier<Account?> {
     await ref.read(accountStoreProvider).writeCloudflareCookie(settings.resolvedBaseUrl, cookie);
   }
 
-  Future<void> saveCookie(String cookie) async {
+  Future<void> saveCookie(String cookie, {String? userId, Map<String, String?>? profile}) async {
     final cloudflareCookie = _cloudflareCookie(cookie);
     final account = Account(cookie: _withoutCloudflareCookie(cookie));
     final http = ref.read(han1meHttpClientProvider);
@@ -64,8 +65,26 @@ class AccountController extends AsyncNotifier<Account?> {
       await ref.read(accountStoreProvider).writeCloudflareCookie(settings.resolvedBaseUrl, cloudflareCookie);
     }
     await http.saveCookies(account.cookie, url: settings.resolvedBaseUrl);
-    final profile = await ref.read(han1meRepositoryProvider).account(settings.resolvedBaseUrl);
-    final next = account.copyWith(id: profile.id, name: profile.name, email: profile.email, avatarUrl: profile.avatarUrl, csrfToken: profile.csrfToken, joinedLabel: profile.joinedLabel, subscriberCount: profile.subscriberCount, videoCount: profile.videoCount);
+    // 登录链路的资料由登录 webview 同源 fetch 提供（cf_clearance 绑定浏览器
+    // TLS 指纹，原生资料请求会被 Cloudflare 挑战）；无资料时才走原生解析，
+    // 失败则保存仅含 cookie 的账号，缺失字段由后续 _refresh 补全。
+    var next = account;
+    try {
+      if (userId != null && userId.isNotEmpty && profile != null) {
+        next = account.copyWith(
+          id: userId,
+          name: profile['name'],
+          email: profile['email'],
+          avatarUrl: profile['avatar'],
+          csrfToken: profile['csrf'],
+        );
+      } else {
+        final fetched = await ref.read(han1meRepositoryProvider).account(settings.resolvedBaseUrl, userId: userId);
+        next = account.copyWith(id: fetched.id, name: fetched.name, email: fetched.email, avatarUrl: fetched.avatarUrl, csrfToken: fetched.csrfToken, joinedLabel: fetched.joinedLabel, subscriberCount: fetched.subscriberCount, videoCount: fetched.videoCount);
+      }
+    } catch (error) {
+      unawaited(appLog('saveCookie profile fetch failed: $error'));
+    }
     state = AsyncData(next);
     await ref.read(accountStoreProvider).write(settings.resolvedBaseUrl, next);
     ref.invalidate(accountsProvider);
@@ -143,7 +162,7 @@ class AccountController extends AsyncNotifier<Account?> {
   Future<Account> _refresh(Account account) async {
     try {
       final settings = await ref.read(settingsProvider.future);
-      final profile = await ref.read(han1meRepositoryProvider).account(settings.resolvedBaseUrl);
+      final profile = await ref.read(han1meRepositoryProvider).account(settings.resolvedBaseUrl, userId: account.id);
       final next = account.copyWith(id: profile.id, name: profile.name, email: profile.email, avatarUrl: profile.avatarUrl, csrfToken: profile.csrfToken, joinedLabel: profile.joinedLabel, subscriberCount: profile.subscriberCount, videoCount: profile.videoCount);
       state = AsyncData(next);
       await ref.read(accountStoreProvider).write(settings.resolvedBaseUrl, next);

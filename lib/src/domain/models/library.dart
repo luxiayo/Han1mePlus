@@ -1,5 +1,5 @@
 class FollowingVideo {
-  const FollowingVideo({required this.videoCode, required this.title, required this.addedAt, this.coverUrl, this.artistName, this.artistAvatarUrl, this.genre, this.duration, this.views, this.rating, this.uploadTime, this.playlistItemId});
+  const FollowingVideo({required this.videoCode, required this.title, required this.addedAt, this.coverUrl, this.artistName, this.artistAvatarUrl, this.genre, this.duration, this.views, this.rating, this.uploadTime, this.playlistItemId, this.pendingUpload = false});
   final String videoCode;
   final String title;
   final String? coverUrl;
@@ -12,8 +12,11 @@ class FollowingVideo {
   final String? uploadTime;
   final int addedAt;
   final String? playlistItemId;
-  Map<String, dynamic> toJson() => {'videoCode': videoCode, 'title': title, 'coverUrl': coverUrl, 'artistName': artistName, 'artistAvatarUrl': artistAvatarUrl, 'genre': genre, 'duration': duration, 'views': views, 'rating': rating, 'uploadTime': uploadTime, 'addedAt': addedAt}..removeWhere((key, value) => value == null);
-  factory FollowingVideo.fromJson(Map<String, dynamic> json) => FollowingVideo(videoCode: json['videoCode'] as String? ?? '', title: json['title'] as String? ?? '', coverUrl: json['coverUrl'] as String?, artistName: json['artistName'] as String?, artistAvatarUrl: json['artistAvatarUrl'] as String?, genre: json['genre'] as String?, duration: json['duration'] as String?, views: json['views'] as String?, rating: json['rating'] as String?, uploadTime: json['uploadTime'] as String?, addedAt: json['addedAt'] as int? ?? 0);
+  /// 本地加入、尚未同步到云端的标记：登出期间加入的稍后观看/收藏据此在
+  /// 云端同步时保留；无标记且云端缺失的条目视为已在站点删除，不再回魂。
+  final bool pendingUpload;
+  Map<String, dynamic> toJson() => {'videoCode': videoCode, 'title': title, 'coverUrl': coverUrl, 'artistName': artistName, 'artistAvatarUrl': artistAvatarUrl, 'genre': genre, 'duration': duration, 'views': views, 'rating': rating, 'uploadTime': uploadTime, 'addedAt': addedAt, 'pendingUpload': pendingUpload}..removeWhere((key, value) => value == null);
+  factory FollowingVideo.fromJson(Map<String, dynamic> json) => FollowingVideo(videoCode: json['videoCode'] as String? ?? '', title: json['title'] as String? ?? '', coverUrl: json['coverUrl'] as String?, artistName: json['artistName'] as String?, artistAvatarUrl: json['artistAvatarUrl'] as String?, genre: json['genre'] as String?, duration: json['duration'] as String?, views: json['views'] as String?, rating: json['rating'] as String?, uploadTime: json['uploadTime'] as String?, addedAt: json['addedAt'] as int? ?? 0, pendingUpload: json['pendingUpload'] as bool? ?? false);
 }
 
 class SubscribedArtist {

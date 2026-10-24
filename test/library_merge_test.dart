@@ -2,18 +2,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:han1me_plus/src/data/local/library_repository.dart';
 import 'package:han1me_plus/src/domain/models/library.dart';
 
-FollowingVideo video(String code) => FollowingVideo(videoCode: code, title: 't-$code', addedAt: 0);
+FollowingVideo video(String code, {bool pendingUpload = false}) => FollowingVideo(videoCode: code, title: 't-$code', addedAt: 0, pendingUpload: pendingUpload);
 Playlist playlist(String id) => Playlist(id: id, title: 'p-$id', count: 0);
 
 void main() {
   group('收藏缓存合并（云端为权威顺序，本地独有条目保留）', () {
-    test('本地独有收藏保留在云端列表之后，重复 videoCode 不重复', () {
-      final merged = mergeVideosByVideoCode([video('local1'), video('r1'), video('local2')], [video('r2'), video('r1')]);
+    test('带 pendingUpload 标记的本地独有条目保留在云端列表之后', () {
+      final merged = mergeVideosByVideoCode([video('local1', pendingUpload: true), video('r1'), video('local2', pendingUpload: true)], [video('r2'), video('r1')]);
       expect(merged.map((v) => v.videoCode), ['r2', 'r1', 'local1', 'local2']);
     });
 
+    test('无标记的本地独有条目视为已在站点删除，不再保留', () {
+      final merged = mergeVideosByVideoCode([video('ghost'), video('r1')], [video('r1')]);
+      expect(merged.map((v) => v.videoCode), ['r1']);
+    });
+
     test('空 videoCode 的本地坏条目被丢弃', () {
-      final merged = mergeVideosByVideoCode([video(''), video('local')], const []);
+      final merged = mergeVideosByVideoCode([video(''), video('local', pendingUpload: true)], const []);
       expect(merged.map((v) => v.videoCode), ['local']);
     });
 
