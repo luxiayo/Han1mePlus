@@ -7,6 +7,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart' as webview;
 
 import '../../core/desktop_platform.dart';
 import '../../core/site_hosts.dart';
+import 'webview_fetcher.dart';
 import 'windows_connection_factory.dart';
 import 'windows_http_overrides.dart';
 
@@ -62,6 +63,26 @@ class Han1meHttpClient {
   }
 
   Iterable<String> _cookieHosts(String host) => hanimeSiteHosts.contains(host) ? hanimeSiteHosts : [host];
+
+  /// 无头 webview fetch：原生请求被 CF 挑战时的兜底通道（浏览器指纹 + 浏览器 cookie）。
+  Future<WebviewFetchResponse> webviewFetch(String url, {String? referer}) => _webview.fetch(url, referer: referer);
+
+  /// 无头 webview 表单 POST：同上，表单编码 + CSRF 头。
+  Future<WebviewFetchResponse> webviewPost(String url, {required Map<String, String> data, String? token, String? referer}) => _webview.post(url, data: data, token: token, referer: referer);
+
+  WebviewFetcher? _webviewFetcher;
+  Future<webview.WebViewEnvironment?> Function()? _environmentLoader;
+
+  /// 绑定 WebView 环境惰性加载器：Windows 上需要与验证 webview 相同
+  /// user-data-folder 的环境才能共享 cookie；macOS/iOS 传 null 用默认存储。
+  void bindWebViewEnvironmentLoader(Future<webview.WebViewEnvironment?> Function() loader) {
+    _environmentLoader = loader;
+  }
+
+  WebviewFetcher get _webview {
+    _webviewFetcher ??= WebviewFetcher(_environmentLoader ?? (() async => null));
+    return _webviewFetcher!;
+  }
 
   Future<String> webViewCookies(String url) async {
     if (!_isDesktop) return await _channel.invokeMethod<String>('webViewCookies', {'url': url}) ?? '';

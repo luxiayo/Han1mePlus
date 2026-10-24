@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:m3e_core/m3e_core.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../../core/app_log.dart';
 import '../../core/app_shell.dart';
 import '../../data/assets/search_option_catalog.dart';
 import '../../data/remote/han1me_api.dart';
@@ -46,7 +47,11 @@ class ExplorePage extends ConsumerWidget {
       body: sections.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
-        loading: () => const Center(child: M3EContainedLoadingIndicator()),
+        loading: () => Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+          const Center(child: M3EContainedLoadingIndicator()),
+          const SizedBox(height: 16),
+          ValueListenableBuilder<String?>(valueListenable: appStatusNotifier, builder: (context, status, _) => status == null || status.isEmpty ? const SizedBox.shrink() : Text(status, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline))),
+        ]),
         error: (error, _) => _ErrorView(
           error: error,
           onRetry: () => ref.read(homeSectionsProvider.notifier).refresh(),
@@ -389,6 +394,14 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Center(child: Padding(
     padding: const EdgeInsets.all(24),
-    child: Column(mainAxisSize: MainAxisSize.min, children: [Text('$error', textAlign: TextAlign.center), const SizedBox(height: 12), FilledButton(onPressed: onRetry, child: Text(AppLocalizations.of(context)!.retry)), if ('$error'.contains('Cloudflare')) TextButton(onPressed: onCloudflareVerified, child: Text(AppLocalizations.of(context)!.completeCloudflareVerification))]),
+    child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Text('$error', textAlign: TextAlign.center),
+      const SizedBox(height: 12),
+      FilledButton(onPressed: onRetry, child: Text(AppLocalizations.of(context)!.retry)),
+      if ('$error'.contains('Cloudflare')) TextButton(onPressed: onCloudflareVerified, child: Text(AppLocalizations.of(context)!.completeCloudflareVerification)),
+      const SizedBox(height: 20),
+      // 实时动作提示：重试/兜底通道进行中时能看到 App 正在做什么。
+      ValueListenableBuilder<String?>(valueListenable: appStatusNotifier, builder: (context, status, _) => status == null || status.isEmpty ? const SizedBox.shrink() : Text(status, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.outline))),
+    ]),
   ));
 }

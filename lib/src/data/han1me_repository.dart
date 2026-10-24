@@ -5,8 +5,15 @@ import '../domain/models/account.dart';
 import '../domain/models/library.dart';
 import 'remote/han1me_api.dart';
 import 'remote/han1me_http_client.dart';
+import 'remote/webview_environment.dart';
 
-final han1meHttpClientProvider = Provider((ref) => Han1meHttpClient());
+final han1meHttpClientProvider = Provider((ref) {
+  final client = Han1meHttpClient();
+  // 无头 webview 兜底通道需要与验证 webview 相同的 WebView 环境（Windows
+  // 上同一 user-data folder 才共享 cookie），惰性读取环境 provider。
+  client.bindWebViewEnvironmentLoader(() => ref.read(webViewEnvironmentProvider.future));
+  return client;
+});
 final han1meRepositoryProvider = Provider((ref) {
   return Han1meRepository(Han1meApi(ref.read(han1meHttpClientProvider)));
 });
@@ -61,7 +68,7 @@ class Han1meRepository {
   }
   void setCloudflareCookie(String cookie) => _api.setCookie(cookie);
   Future<VideoDetail> video(String baseUrl, String id) => _merge('video:$baseUrl:$id', () => _api.video(baseUrl, id));
-  Future<Account> account(String baseUrl) => _merge('account:$baseUrl', () => _api.account(baseUrl));
+  Future<Account> account(String baseUrl, {String? userId}) => _merge('account:$baseUrl', () => _api.account(baseUrl, userId: userId));
   Future<void> updateProfile(String baseUrl, String id, String token, String name, String email) => _api.updateProfile(baseUrl, id, token, name, email);
   Future<void> updatePassword(String baseUrl, String id, String token, String oldPassword, String password, String confirmation) => _api.updatePassword(baseUrl, id, token, oldPassword, password, confirmation);
   Future<RemoteLibrary> library(String baseUrl, String id, {void Function(int step)? onStep, int? maxSubscriptionPages}) => _merge('library:$baseUrl:$id', () => _api.library(baseUrl, id, onStep: onStep, maxSubscriptionPages: maxSubscriptionPages));

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 
@@ -5,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:html/parser.dart' as html_parser;
 import 'package:html/dom.dart' as dom;
 
+import '../../core/app_log.dart';
 import '../../core/site_url.dart';
 import '../../domain/models/account.dart';
 import '../../domain/models/library.dart';
@@ -322,24 +324,31 @@ class Han1meApi {
       );
   }
 
-  Future<Account> account(String baseUrl) async {
-    final home = await _document(siteHomeUrl(baseUrl), referer: siteHomeUrl(baseUrl));
-    final profile = home.querySelector('#user-modal-trigger');
-    final id = RegExp(r'/user/(\d+)').firstMatch(profile?.attributes['href'] ?? '')?.group(1) ??
-        RegExp(r'\d+').firstMatch(home.querySelector('.profile-sub-stats-id')?.text ?? '')?.group(0);
-    if (id == null) throw StateError('Account profile is unavailable');
+  Future<Account> account(String baseUrl, {String? userId}) async {
+    // 镜像站（hanimeone 等）新模板的用户入口是 JS 渲染，原生 HTML 抓不到
+    // #user-modal-trigger；登录 webview 能拿到 /user/<id>，带 userId 时跳过
+    // 主页抓取、直连 /user/<id>/edit 拉资料。未带时走主页解析（上游同款）。
+    String? id = userId;
+    dom.Document? home;
+    if (id == null) {
+      home = await _document(siteHomeUrl(baseUrl), referer: siteHomeUrl(baseUrl));
+      final profile = home.querySelector('#user-modal-trigger');
+      id = RegExp(r'/user/(\d+)').firstMatch(profile?.attributes['href'] ?? '')?.group(1) ??
+          RegExp(r'\d+').firstMatch(home.querySelector('.profile-sub-stats-id')?.text ?? '')?.group(0);
+      if (id == null) throw StateError('Account profile is unavailable');
+    }
     final document = await _document(siteEndpointUrl(baseUrl, 'user/$id/edit'), referer: siteHomeUrl(baseUrl));
-    final stats = home.querySelector('.profile-sub-stats-new-line')?.text ?? '';
+    final stats = home?.querySelector('.profile-sub-stats-new-line')?.text ?? '';
     final numbers = RegExp(r'\d+').allMatches(stats).map((match) => int.parse(match.group(0)!)).toList();
-    final avatar = document.querySelector('img#playlist-avatar') ?? home.querySelector('#user-modal-dp-wrapper img, .profile-avatar-wrapper img');
+    final avatar = document.querySelector('img#playlist-avatar') ?? home?.querySelector('#user-modal-dp-wrapper img, .profile-avatar-wrapper img');
     return Account(
       cookie: _cookie ?? '',
       id: id,
-      name: document.querySelector('input[name="name"]')?.attributes['value']?.trim() ?? home.querySelector('#user-modal-name, .profile-display-name')?.text.trim(),
+      name: document.querySelector('input[name="name"]')?.attributes['value']?.trim() ?? home?.querySelector('#user-modal-name, .profile-display-name')?.text.trim(),
       email: document.querySelector('input[name="email"]')?.attributes['value']?.trim(),
       avatarUrl: _absolute(baseUrl, avatar?.attributes['src']),
       csrfToken: document.querySelector('meta[name="csrf-token"]')?.attributes['content'] ?? document.querySelector('input[name="_token"]')?.attributes['value'],
-      joinedLabel: home.querySelector('#user-modal-created')?.text.trim(),
+      joinedLabel: home?.querySelector('#user-modal-created')?.text.trim(),
       subscriberCount: numbers.isEmpty ? null : numbers.first,
       videoCount: numbers.length < 2 ? null : numbers[1],
     );
@@ -530,51 +539,87 @@ class Han1meApi {
       'Sec-Fetch-Site': 'same-origin',
       if (referer != null) 'Referer': referer,
     };
-    var response = await _http.get(url, headers: headers);
-    // Cloudflare 1034（Edge IP Restricted）：当前线路连到的边缘 IP 不被该站点允许，
-    // 多由本地代理按域名分流的出口决定。改走内置优选 IP 的另一条边缘路径重试一次。
-    if (_http.canForceBuiltInHosts && isEdgeIpRestrictedResponse(response)) {
-      response = await _http.get(url, headers: headers, forceBuiltInHosts: true);
+    ({int status, String url, String body}) response;
+    try {
+      var native = await _http.get(url, headers: headers);
+      // Cloudflare 1034（Edge IP Restricted）：当前线路连到的边缘 IP 不被该站点允许，
+      // 多由本地代理按域名分流的出口决定。改走内置优选 IP 的另一条边缘路径重试一次。
+      if (_http.canForceBuiltInHosts && isEdgeIpRestrictedResponse(native)) {
+        native = await _http.get(url, headers: headers, forceBuiltInHosts: true);
+      }
+      // Cloudflare 限流：按 Retry-After 等待后重试一次。
+      if (native.statusCode == 429 && !retried) {
+        final retryAfter = int.tryParse(native.headers['retry-after']?.first ?? '') ?? 3;
+        await Future<void>.delayed(Duration(seconds: retryAfter.clamp(1, 15)));
+        return await _document(url, referer: referer, retried: true);
+      }
+      if (isCloudflareResponse(native.statusCode, native.headers, native.body)) {
+        // 站点 Cloudflare 收紧后会按 TLS 指纹挑战原生请求（cf_clearance 绑定
+        // 浏览器指纹，原生携带也 403）：改走无头 webview 同源 fetch——浏览器
+        // 指纹 + 浏览器 cookie，CF 放行。webview 也被挑战（未完成验证）时才
+        // 抛原异常走既有验证 UI。
+        unawaited(appLog('document native challenged → webview fallback: $url'));
+        response = await _webviewDocumentFallback(url, referer);
+      } else {
+        response = (status: native.statusCode, url: native.url, body: native.body);
+      }
+    } on CloudflareChallengeException {
+      // _http 层直接抛出的挑战（如有）同样走 webview 兜底。
+      if (retried) rethrow;
+      unawaited(appLog('document native threw CF → webview fallback: $url'));
+      response = await _webviewDocumentFallback(url, referer);
     }
-    // Cloudflare 限流：按 Retry-After 等待后重试一次。
-    if (response.statusCode == 429 && !retried) {
-      final retryAfter = int.tryParse(response.headers['retry-after']?.first ?? '') ?? 3;
-      await Future<void>.delayed(Duration(seconds: retryAfter.clamp(1, 15)));
-      return _document(url, referer: referer, retried: true);
-    }
-    if (isCloudflareResponse(response.statusCode, response.headers, response.body)) throw CloudflareChallengeException(url);
-    if (response.statusCode >= 400) {
+    // 最终校验：webview 兜底后仍是挑战页（用户尚未完成验证）→ 交由既有验证 UI。
+    if (isCloudflareResponse(response.status, const {}, response.body)) throw CloudflareChallengeException(url);
+    if (response.status >= 400) {
       // message 带 URL 与响应体摘要：页面错误态能直接看出是 CF 拦截还是站点拒绝。
       final snippet = response.body.replaceAll(RegExp(r'<[^>]*>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
       final detail = snippet.isEmpty ? '' : ' ${snippet.length > 160 ? snippet.substring(0, 160) : snippet}';
-      throw DioException(requestOptions: RequestOptions(path: url), message: 'Request failed: HTTP ${response.statusCode} ($url)$detail', response: Response(statusCode: response.statusCode, requestOptions: RequestOptions(path: url)));
+      throw DioException(requestOptions: RequestOptions(path: url), message: 'Request failed: HTTP ${response.status} ($url)$detail', response: Response(statusCode: response.status, requestOptions: RequestOptions(path: url)));
     }
     final requestedOrigin = Uri.parse(url).origin;
-    final resolvedOrigin = Uri.tryParse(response.url)?.origin;
+    final resolvedUri = Uri.tryParse(response.url);
+    final resolvedOrigin = resolvedUri == null || !resolvedUri.hasScheme || resolvedUri.host.isEmpty ? null : resolvedUri.origin;
     if (resolvedOrigin != null && resolvedOrigin != requestedOrigin) _resolvedOrigins[requestedOrigin] = resolvedOrigin;
     return html_parser.parse(response.body);
+  }
+
+  Future<({int status, String url, String body})> _webviewDocumentFallback(String url, String? referer) async {
+    final webview = await _http.webviewFetch(url, referer: referer);
+    unawaited(appLog('document webview status=${webview.status}, body=${webview.body.length}'));
+    return (status: webview.status, url: webview.url, body: webview.body);
   }
 
   Future<void> _form(String url, Map<String, String> data, String token, {bool refreshToken = false}) async {
     final origin = _resolvedOrigin(url);
     final requestUrl = _atOrigin(url, origin);
-    final currentToken = await _currentCsrfToken(origin, forceRefresh: refreshToken) ?? token;
+    var currentToken = await _currentCsrfToken(origin, forceRefresh: refreshToken) ?? token;
     final formData = {...data, '_token': currentToken};
-    final response = await _http.post(
-      requestUrl,
-      formData,
-      headers: {'X-CSRF-TOKEN': currentToken, 'Referer': '$origin/'},
-    );
-    if (isCloudflareResponse(response.statusCode, response.headers, response.body)) throw CloudflareChallengeException(url);
+    ({int status, String url, String body}) response;
+    try {
+      final native = await _http.post(
+        requestUrl,
+        formData,
+        headers: {'X-CSRF-TOKEN': currentToken, 'Referer': '$origin/'},
+      );
+      response = (status: native.statusCode, url: native.url, body: native.body);
+    } on CloudflareChallengeException {
+      // 原生 POST 被 CF 挑战：改走无头 webview 同源 fetch（表单编码 + CSRF 头）。
+      final webview = await _http.webviewPost(requestUrl, data: formData, token: currentToken, referer: '$origin/');
+      if (isCloudflareResponse(webview.status, const {}, webview.body)) throw CloudflareChallengeException(url);
+      response = (status: webview.status, url: requestUrl, body: webview.body);
+      // webview 通道拿到的页面 csrf 可能更新，缓存随 webview 值失效重取。
+      _csrfTokens.remove(origin);
+    }
     if (Uri.tryParse(response.url)?.path == '/login') {
       _csrfTokens.remove(origin);
       throw DioException(requestOptions: RequestOptions(path: url), message: 'Authentication expired');
     }
-    if (response.statusCode == 419 && !refreshToken) {
+    if (response.status == 419 && !refreshToken) {
       _csrfTokens.remove(origin);
       return _form(url, data, token, refreshToken: true);
     }
-    if (response.statusCode >= 400 && response.statusCode != 302) throw DioException(requestOptions: RequestOptions(path: url), message: 'Request failed: HTTP ${response.statusCode}');
+    if (response.status >= 400 && response.status != 302) throw DioException(requestOptions: RequestOptions(path: url), message: 'Request failed: HTTP ${response.status}');
   }
 
   Future<String?> _currentCsrfToken(String origin, {bool forceRefresh = false}) async {
